@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { InferenceMode, InferenceSource } from 'firebase/ai';
 import {
   extractJsonObject,
@@ -28,7 +28,15 @@ describe('firebaseAi hybrid router', () => {
     expect(() => extractJsonObject('[1, 2, 3]')).toThrow('Model did not return a JSON object');
   });
 
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
   it('uses explicit PREVIEW_LOCAL telemetry when Firebase env config is absent', async () => {
+    vi.stubEnv('VITE_FIREBASE_API_KEY', '');
+    vi.stubEnv('VITE_FIREBASE_AUTH_DOMAIN', '');
+    vi.stubEnv('VITE_FIREBASE_PROJECT_ID', '');
+    vi.stubEnv('VITE_FIREBASE_APP_ID', '');
     const note =
       'Mama Njeri 0712 345 678 took 2x unga ya ugali KES 350, paid KES 200 cash, deni KES 150';
     const res = await parseShopNoteHybrid(note, 'PREFER_ON_DEVICE');

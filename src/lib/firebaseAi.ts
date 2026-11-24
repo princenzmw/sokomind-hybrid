@@ -27,7 +27,7 @@ import type {
   TelemetrySource,
 } from './types';
 
-const CLOUD_MODEL = 'gemini-2.5-flash';
+const CLOUD_MODEL = 'gemini-3.8-flash';
 
 const NOTE_SYSTEM_PROMPT = `You extract East African micro-retail shop notes (English, Swahili, and Sheng) into strict JSON.
 Return a single JSON object matching this shape:
@@ -172,6 +172,19 @@ export async function detectOnDeviceNanoStatus(): Promise<'available' | 'downloa
     return 'unavailable';
   }
   return 'unavailable';
+}
+
+export async function warmupOnDeviceModel(onProgress?: (pct: number) => void): Promise<void> {
+  const services = getFirebaseServices();
+  if (!services) {
+    throw new Error('Firebase credentials are required before downloading Chrome Gemini Nano.');
+  }
+  const ai = getAiClient(services.app);
+  const model = getGenerativeModel(ai, { mode: InferenceMode.ONLY_ON_DEVICE });
+  await model.initializeDeviceModel((progressValue) => {
+    const pct = Math.max(0, Math.min(100, Math.round(progressValue * 100)));
+    onProgress?.(pct);
+  });
 }
 
 export interface HybridNoteResult {
@@ -398,7 +411,7 @@ export async function generateMarginStrategyCloud(entries: LedgerEntry[]): Promi
         redactedCount: entries.reduce((sum, e) => sum + e.redactionCount, 0),
         fallbackUsed: false,
         estimatedCloudTokensSaved: 0,
-        note: 'Preview strategy summary active (set VITE_FIREBASE_* keys for Cloud Gemini 2.5 Flash).',
+        note: 'Preview strategy summary active (set VITE_FIREBASE_* keys for Cloud Gemini 3.8 Flash).',
       },
     };
   }

@@ -4,6 +4,8 @@ import type { FirebaseConfigStatus, RoutingMode } from '../lib/types';
 interface StatusHeaderProps {
   firebaseStatus: FirebaseConfigStatus;
   nanoStatus: 'available' | 'downloadable' | 'unavailable';
+  nanoDownloadPct: number | null;
+  onDownloadNano?: () => void;
   simulatedOffline: boolean;
   onToggleOffline: () => void;
   routingMode: RoutingMode;
@@ -20,6 +22,8 @@ const MODE_OPTIONS: Array<{ value: RoutingMode; label: string; hint: string }> =
 export function StatusHeader({
   firebaseStatus,
   nanoStatus,
+  nanoDownloadPct,
+  onDownloadNano,
   simulatedOffline,
   onToggleOffline,
   routingMode,
@@ -70,6 +74,17 @@ export function StatusHeader({
               <Cpu className="h-3.5 w-3.5" />
               Chrome Nano: {nanoStatus}
             </span>
+
+            {isLive && nanoStatus === 'downloadable' && onDownloadNano && (
+              <button
+                type="button"
+                onClick={onDownloadNano}
+                disabled={nanoDownloadPct !== null}
+                className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-emerald-300 bg-emerald-50 px-2.5 py-1 text-emerald-900 transition hover:bg-emerald-100 disabled:cursor-wait disabled:opacity-75"
+              >
+                {nanoDownloadPct !== null ? `Downloading Nano (${nanoDownloadPct}%)` : 'Download Nano'}
+              </button>
+            )}
 
             <button
               type="button"

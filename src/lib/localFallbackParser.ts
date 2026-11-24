@@ -157,7 +157,7 @@ export function buildPreviewStrategyAdvice(entries: LedgerEntry[]): StrategyAdvi
       'Request partial M-PESA settlement on multi-item baskets exceeding KES 500.',
     ],
     cashflowNote:
-      'Local preview advisory active because live Firebase keys are omitted. Add VITE_FIREBASE_* keys to execute real Cloud Gemini 2.5 Flash strategy analysis.',
+      'Local preview advisory active because live Firebase keys are omitted. Add VITE_FIREBASE_* keys to execute real Cloud Gemini 3.8 Flash strategy analysis.',
     auditedPayload: summary,
   };
 }

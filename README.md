@@ -2,7 +2,7 @@
 
 Built for **#BuildHybridAI 2026** using the **Firebase AI Logic Hybrid Inference SDK (`firebase/ai`)**, **Firebase App Check**, and offline-capable Firestore persistence.
 
-SokoMind helps micro-retailers record daily Swahili, Sheng, and English shop notes (`madeni` credit tabs, M-PESA payments, and cash sales) locally with Chrome Gemini Nano, scrub sensitive customer identifiers before any cloud fallback, and escalate anonymized aggregate summaries or supplier invoice images to Gemini 2.5 Flash in the cloud.
+SokoMind helps micro-retailers record daily Swahili, Sheng, and English shop notes (`madeni` credit tabs, M-PESA payments, and cash sales) locally with Chrome Gemini Nano, scrub sensitive customer identifiers before any cloud fallback, and escalate anonymized aggregate summaries or supplier invoice images to Gemini 3.8 Flash in the cloud.
 
 ---
 
@@ -17,7 +17,7 @@ SokoMind helps micro-retailers record daily Swahili, Sheng, and English shop not
         v
 [Firebase AI Logic Hybrid Router]  (guarded by Firebase App Check)
   |-- PREFER_ON_DEVICE / ONLY_ON_DEVICE --> Chrome Gemini Nano ($0, low latency, works offline)
-  |-- Fallback or ONLY_IN_CLOUD         --> Cloud Gemini 2.5 Flash (multimodal receipts & margin strategy)
+  |-- Fallback or ONLY_IN_CLOUD         --> Cloud Gemini 3.8 Flash (multimodal receipts & margin strategy)
         |
         v
 [Telemetry Tracker]  --> Reads response.inferenceSource (ON_DEVICE vs IN_CLOUD), latency ms, tokens saved

@@ -9,6 +9,7 @@ import {
   generateMarginStrategyCloud,
   parseShopNoteHybrid,
   scanSupplierReceiptHybrid,
+  warmupOnDeviceModel,
 } from './lib/firebaseAi';
 import { getFirebaseConfigStatus, getFirebaseServices } from './lib/firebaseClient';
 import { INITIAL_LEDGER_ENTRIES } from './lib/sampleData';
@@ -54,6 +55,7 @@ export function App() {
   const [routingMode, setRoutingMode] = useState<RoutingMode>('PREFER_ON_DEVICE');
   const [simulatedOffline, setSimulatedOffline] = useState(false);
   const [nanoStatus, setNanoStatus] = useState<'available' | 'downloadable' | 'unavailable'>('unavailable');
+  const [nanoDownloadPct, setNanoDownloadPct] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
   const [strategyBusy, setStrategyBusy] = useState(false);
   const [advice, setAdvice] = useState<StrategyAdvice | null>(null);
@@ -128,11 +130,27 @@ export function App() {
     }
   }
 
+  async function handleDownloadNano() {
+    setErrorMsg(null);
+    setNanoDownloadPct(0);
+    try {
+      await warmupOnDeviceModel((pct) => setNanoDownloadPct(pct));
+      const nextStatus = await detectOnDeviceNanoStatus();
+      setNanoStatus(nextStatus);
+    } catch (err) {
+      setErrorMsg(err instanceof Error ? err.message : 'Unable to download Chrome Gemini Nano.');
+    } finally {
+      setNanoDownloadPct(null);
+    }
+  }
+
   return (
     <div className="min-h-screen bg-stone-50 text-stone-900">
       <StatusHeader
         firebaseStatus={firebaseStatus}
         nanoStatus={nanoStatus}
+        nanoDownloadPct={nanoDownloadPct}
+        onDownloadNano={handleDownloadNano}
         simulatedOffline={simulatedOffline}
         onToggleOffline={() => setSimulatedOffline((prev) => !prev)}
         routingMode={routingMode}
