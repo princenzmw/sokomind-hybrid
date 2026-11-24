@@ -34,22 +34,50 @@ export interface FirebaseServices {
 
 let cachedServices: FirebaseServices | null = null;
 
+export function resetFirebaseServicesForTest(): void {
+  cachedServices = null;
+}
+
+export function isAppCheckDebugActiveOnHost(): boolean {
+  const debugToken = (import.meta.env.VITE_FIREBASE_APPCHECK_DEBUG_TOKEN ?? '').trim();
+  if (!debugToken) {
+    return false;
+  }
+  if (debugToken !== 'true') {
+    return true;
+  }
+  if (typeof window === 'undefined') {
+    return false;
+  }
+  const host = window.location.hostname;
+  return (
+    host === 'localhost' ||
+    host === '127.0.0.1' ||
+    new URLSearchParams(window.location.search).has('appcheck_debug')
+  );
+}
+
 export function getFirebaseConfigStatus(): FirebaseConfigStatus {
   const env = import.meta.env;
   const missingKeys = REQUIRED_ENV_KEYS.filter((k) => !env[k] || String(env[k]).trim() === '');
   const configured = missingKeys.length === 0;
   const siteKey = (env.VITE_FIREBASE_RECAPTCHA_SITE_KEY ?? '').trim();
   const debugToken = (env.VITE_FIREBASE_APPCHECK_DEBUG_TOKEN ?? '').trim();
+  const debugOnHost = isAppCheckDebugActiveOnHost();
 
   let appCheckStatus: AppCheckStatus = 'not_configured';
   let appCheckDetail = 'Add a reCAPTCHA site key or debug token in .env to enable App Check attestation.';
 
-  if (configured && debugToken) {
-    appCheckStatus = 'debug_token';
-    appCheckDetail = 'App Check debug token configured for local or hackathon evaluation.';
-  } else if (configured && siteKey) {
+  if (configured && siteKey) {
     appCheckStatus = 'active';
     appCheckDetail = 'App Check active with reCAPTCHA attestation.';
+  } else if (configured && debugOnHost) {
+    appCheckStatus = 'debug_token';
+    appCheckDetail = 'App Check debug token enabled for localhost or ?appcheck_debug=1 inspection.';
+  } else if (configured && debugToken) {
+    appCheckStatus = 'debug_token';
+    appCheckDetail =
+      'App Check debug mode ready on localhost or via ?appcheck_debug=1 (skipped on public host without site key).';
   } else if (configured) {
     appCheckDetail = 'Firebase app is configured; add VITE_FIREBASE_APPCHECK_DEBUG_TOKEN or VITE_FIREBASE_RECAPTCHA_SITE_KEY.';
   }
@@ -92,10 +120,11 @@ export function getFirebaseServices(): FirebaseServices | null {
   const debugToken = (env.VITE_FIREBASE_APPCHECK_DEBUG_TOKEN ?? '').trim();
   const siteKey = (env.VITE_FIREBASE_RECAPTCHA_SITE_KEY ?? '').trim();
   const useEnterprise = String(env.VITE_FIREBASE_RECAPTCHA_ENTERPRISE ?? '').toLowerCase() === 'true';
+  const enableDebugToken = isAppCheckDebugActiveOnHost();
 
-  if (debugToken || siteKey) {
+  if (siteKey || enableDebugToken) {
     try {
-      if (debugToken) {
+      if (enableDebugToken && debugToken) {
         globalThis.FIREBASE_APPCHECK_DEBUG_TOKEN = debugToken === 'true' ? true : debugToken;
       }
       const effectiveKey = siteKey || '6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI';

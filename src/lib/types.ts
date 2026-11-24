@@ -24,7 +24,7 @@ export interface LineItem {
 }
 
 export interface PrivacyRedaction {
-  kind: 'PHONE' | 'MPESA_CODE' | 'CUSTOMER_NAME';
+  kind: 'PHONE' | 'MPESA_CODE' | 'CUSTOMER_NAME' | 'NATIONAL_ID' | 'EMAIL';
   original: string;
   masked: string;
 }
@@ -40,6 +40,7 @@ export interface InferenceTelemetry {
   task: 'note_parse' | 'receipt_scan' | 'margin_strategy';
   requestedMode: RoutingMode;
   inferenceSource: TelemetrySource;
+  modelUsed?: string;
   latencyMs: number;
   redactedCount: number;
   fallbackUsed: boolean;
@@ -64,7 +65,18 @@ export interface LedgerEntry {
   summary: string;
   inferenceSource: TelemetrySource;
   requestedMode: RoutingMode;
+  modelUsed?: string;
   latencyMs: number;
+}
+
+export type SyncState = 'firestore_synced' | 'offline_cached' | 'local_only';
+
+export interface HybridBenchmarkResult {
+  note: string;
+  sanitizedNote: string;
+  redactedCount: number;
+  onDeviceRun: InferenceTelemetry;
+  cloudRun: InferenceTelemetry;
 }
 
 export interface AnonymizedCategoryTotal {

@@ -8,8 +8,10 @@ import type {
 
 const KENYA_PHONE_RE = /(?:\+?254|0)(?:7\d{2}|1\d{2})[\s-]?\d{3}[\s-]?\d{3}\b/g;
 const MPESA_CODE_RE = /\b[A-Z]{2,3}[A-Z0-9]{7,8}\b/g;
+const KENYA_ID_RE = /\b(?:ID(?:\s*No\.?)?)\s*:?\s*\d{7,8}\b/gi;
+const EMAIL_RE = /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi;
 const CUSTOMER_NAME_RE =
-  /\b(?:(?:Mama|Baba|Kwa|Duka|Mzee)\s+[A-Z][a-z]{2,}(?:\s+[A-Z][a-z]{2,})?|(?:Customer|Client|Supplier|Mrs?|Ms)\.?\s+[A-Z][a-z]{2,}(?:\s+[A-Z][a-z]{2,})?)\b/g;
+  /\b(?:(?:Mama|Baba|Kwa|Duka|Mzee|Bi|Bw|Ndugu|Auntie|Uncle|Shosh)\s+[A-Z][a-z]{2,}(?:\s+[A-Z][a-z]{2,})?|(?:Customer|Client|Supplier|Mrs?|Ms)\.?\s+[A-Z][a-z]{2,}(?:\s+[A-Z][a-z]{2,})?)\b/g;
 
 function stableAlias(raw: string): string {
   let hash = 2166136261;
@@ -50,6 +52,18 @@ export function redactShopNote(rawText: string): PrivacyRedactionResult {
     return masked;
   });
 
+  sanitized = sanitized.replace(EMAIL_RE, (match) => {
+    const masked = '[EMAIL_REDACTED]';
+    redactions.push({ kind: 'EMAIL', original: match, masked });
+    return masked;
+  });
+
+  sanitized = sanitized.replace(KENYA_ID_RE, (match) => {
+    const masked = '[ID_REDACTED]';
+    redactions.push({ kind: 'NATIONAL_ID', original: match, masked });
+    return masked;
+  });
+
   sanitized = sanitized.replace(CUSTOMER_NAME_RE, (match) => {
     const masked = `[${stableAlias(match)}]`;
     redactions.push({ kind: 'CUSTOMER_NAME', original: match, masked });
@@ -57,6 +71,52 @@ export function redactShopNote(rawText: string): PrivacyRedactionResult {
   });
 
   return { sanitizedText: sanitized, redactions };
+}
+
+export interface OpenCreditTabSummary {
+  customerAlias: string;
+  openBalanceKes: number;
+  tabCount: number;
+  lastActivity: string;
+}
+
+export function aggregateOpenCreditTabs(entries: LedgerEntry[]): OpenCreditTabSummary[] {
+  const byAlias = new Map<
+    string,
+    { owed: number; repaid: number; tabCount: number; lastActivity: string }
+  >();
+
+  for (const entry of entries) {
+    if (entry.category !== 'Credit Tab' && entry.category !== 'Credit Repayment') {
+      continue;
+    }
+    const current = byAlias.get(entry.customerAlias) ?? {
+      owed: 0,
+      repaid: 0,
+      tabCount: 0,
+      lastActivity: entry.createdAt,
+    };
+    if (entry.category === 'Credit Tab') {
+      current.owed += entry.creditOwedKes;
+      current.tabCount += 1;
+    } else if (entry.category === 'Credit Repayment') {
+      current.repaid += entry.paidKes;
+    }
+    if (entry.createdAt > current.lastActivity) {
+      current.lastActivity = entry.createdAt;
+    }
+    byAlias.set(entry.customerAlias, current);
+  }
+
+  return Array.from(byAlias.entries())
+    .map(([customerAlias, stats]) => ({
+      customerAlias,
+      openBalanceKes: Math.max(0, Math.round(stats.owed - stats.repaid)),
+      tabCount: stats.tabCount,
+      lastActivity: stats.lastActivity,
+    }))
+    .filter((row) => row.openBalanceKes > 0)
+    .sort((a, b) => b.openBalanceKes - a.openBalanceKes);
 }
 
 export function buildAnonymizedLedgerSummary(entries: LedgerEntry[]): AnonymizedLedgerSummary {

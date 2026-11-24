@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  aggregateOpenCreditTabs,
   buildAnonymizedLedgerSummary,
   deriveCustomerAlias,
   redactShopNote,
@@ -101,5 +102,74 @@ describe('privacyFirewall', () => {
     expect(serialized).not.toContain('Mama Wanjiku');
     expect(serialized).not.toContain('0721440812');
     expect(serialized).not.toContain('TKL9120PQR');
+  });
+
+  it('masks Kenyan national IDs, emails, and extended honorifics', () => {
+    const raw =
+      'Bi Amina ID No: 28491023 (amina.shop@example.com) paid KES 450, Ndugu Juma took 1x mkate';
+    const result = redactShopNote(raw);
+
+    expect(result.sanitizedText).not.toContain('28491023');
+    expect(result.sanitizedText).not.toContain('amina.shop@example.com');
+    expect(result.sanitizedText).not.toContain('Bi Amina');
+    expect(result.sanitizedText).not.toContain('Ndugu Juma');
+    expect(result.sanitizedText).toContain('[ID_REDACTED]');
+    expect(result.sanitizedText).toContain('[EMAIL_REDACTED]');
+    expect(result.redactions.map((r) => r.kind)).toEqual(
+      expect.arrayContaining(['EMAIL', 'NATIONAL_ID', 'CUSTOMER_NAME']),
+    );
+  });
+
+  it('aggregates net open credit tabs minus repayments per customer alias', () => {
+    const entries: LedgerEntry[] = [
+      {
+        id: '1',
+        createdAt: '2026-11-25T08:00:00Z',
+        rawInput: 'Mama Njeri tab',
+        sanitizedInput: '[Customer #AAAA] tab',
+        redactionCount: 1,
+        customerAlias: 'Customer #AAAA',
+        category: 'Credit Tab',
+        paymentMethod: 'CREDIT',
+        items: [],
+        totalKes: 500,
+        paidKes: 100,
+        creditOwedKes: 400,
+        estimatedMarginPct: 18,
+        summary: 'Tab',
+        inferenceSource: 'ON_DEVICE',
+        requestedMode: 'PREFER_ON_DEVICE',
+        latencyMs: 90,
+      },
+      {
+        id: '2',
+        createdAt: '2026-11-25T10:00:00Z',
+        rawInput: 'Mama Njeri repaid',
+        sanitizedInput: '[Customer #AAAA] repaid',
+        redactionCount: 1,
+        customerAlias: 'Customer #AAAA',
+        category: 'Credit Repayment',
+        paymentMethod: 'MPESA',
+        items: [],
+        totalKes: 150,
+        paidKes: 150,
+        creditOwedKes: 0,
+        estimatedMarginPct: 20,
+        summary: 'Repayment',
+        inferenceSource: 'ON_DEVICE',
+        requestedMode: 'PREFER_ON_DEVICE',
+        latencyMs: 85,
+      },
+    ];
+
+    const open = aggregateOpenCreditTabs(entries);
+    expect(open).toEqual([
+      {
+        customerAlias: 'Customer #AAAA',
+        openBalanceKes: 250,
+        tabCount: 1,
+        lastActivity: '2026-11-25T10:00:00Z',
+      },
+    ]);
   });
 });

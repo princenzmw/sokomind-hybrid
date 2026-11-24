@@ -127,7 +127,7 @@ export const INITIAL_LEDGER_ENTRIES: LedgerEntry[] = [
   seedEntry(
     'seed-4',
     2.0,
-    'Multimodal supplier invoice scan: 12x Fresh Milk 500ml and 6x Omo Washing Powder 500g total KES 1,860',
+    'Multimodal supplier invoice scan: 12x Fresh Milk 500ml and 6x Omo Washing Powder 500g total KES 1,650',
     {
       category: 'Wholesale Restock',
       paymentMethod: 'SUPPLIER_EXPENSE',

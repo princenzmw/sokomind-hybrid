@@ -1,14 +1,17 @@
 import { useState } from 'react';
-import { Activity, BarChart3, ChevronDown, ChevronUp, Sparkles } from 'lucide-react';
+import { Activity, BarChart3, ChevronDown, ChevronUp, Gauge, Sparkles } from 'lucide-react';
 import { buildAnonymizedLedgerSummary } from '../lib/privacyFirewall';
-import type { InferenceTelemetry, LedgerEntry, StrategyAdvice } from '../lib/types';
+import type { HybridBenchmarkResult, InferenceTelemetry, LedgerEntry, StrategyAdvice } from '../lib/types';
 
 interface TelemetryAndStrategyProps {
   entries: LedgerEntry[];
   telemetryLog: InferenceTelemetry[];
   advice: StrategyAdvice | null;
   strategyBusy: boolean;
+  benchmarkBusy: boolean;
+  benchmarkResult: HybridBenchmarkResult | null;
   onGenerateStrategy: () => Promise<void>;
+  onRunBenchmark: () => Promise<void>;
 }
 
 export function TelemetryAndStrategy({
@@ -16,7 +19,10 @@ export function TelemetryAndStrategy({
   telemetryLog,
   advice,
   strategyBusy,
+  benchmarkBusy,
+  benchmarkResult,
   onGenerateStrategy,
+  onRunBenchmark,
 }: TelemetryAndStrategyProps) {
   const [showPayload, setShowPayload] = useState(false);
 
@@ -61,12 +67,23 @@ export function TelemetryAndStrategy({
       </section>
 
       <section className="rounded-xl border border-stone-200 bg-white p-5 shadow-xs">
-        <div className="flex items-center justify-between gap-2">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <Activity className="h-4 w-4 text-emerald-700" />
             <h2 className="text-base font-semibold text-stone-900">Hybrid Inference Telemetry</h2>
           </div>
-          <span className="font-mono text-xs text-stone-500">Avg {avgLatency}ms</span>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              disabled={benchmarkBusy}
+              onClick={onRunBenchmark}
+              className="inline-flex cursor-pointer items-center gap-1 rounded-md border border-stone-200 bg-stone-50 px-2.5 py-1 text-xs font-medium text-stone-700 transition hover:bg-stone-100 disabled:opacity-50"
+            >
+              <Gauge className="h-3.5 w-3.5 text-emerald-700" />
+              {benchmarkBusy ? 'Benchmarking...' : 'Run Benchmark'}
+            </button>
+            <span className="font-mono text-xs text-stone-500">Avg {avgLatency}ms</span>
+          </div>
         </div>
 
         <div className="mt-3 grid grid-cols-3 gap-2 text-center">
@@ -84,19 +101,47 @@ export function TelemetryAndStrategy({
           </div>
         </div>
 
+        {benchmarkResult && (
+          <div className="mt-3 rounded-lg border border-stone-200 bg-stone-50 p-3 text-xs">
+            <div className="flex items-center justify-between font-semibold text-stone-800">
+              <span>Side-by-Side Hybrid Latency</span>
+              <span className="font-mono text-[11px] text-emerald-800">
+                {benchmarkResult.redactedCount} PII masked
+              </span>
+            </div>
+            <div className="mt-2 grid grid-cols-2 gap-2 font-mono text-[11px]">
+              <div className="rounded border border-emerald-200 bg-white p-2">
+                <div className="text-stone-500">PREFER_ON_DEVICE</div>
+                <div className="mt-0.5 font-bold text-emerald-800">
+                  {benchmarkResult.onDeviceRun.inferenceSource} · {benchmarkResult.onDeviceRun.latencyMs}ms
+                </div>
+                <div className="text-[10px] text-stone-500">{benchmarkResult.onDeviceRun.modelUsed}</div>
+              </div>
+              <div className="rounded border border-sky-200 bg-white p-2">
+                <div className="text-stone-500">ONLY_IN_CLOUD</div>
+                <div className="mt-0.5 font-bold text-sky-800">
+                  {benchmarkResult.cloudRun.inferenceSource} · {benchmarkResult.cloudRun.latencyMs}ms
+                </div>
+                <div className="text-[10px] text-stone-500">{benchmarkResult.cloudRun.modelUsed}</div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {telemetryLog.length > 0 && (
           <div className="mt-3 space-y-1.5 border-t border-stone-100 pt-3">
-            {telemetryLog.slice(0, 4).map((item) => (
+            {telemetryLog.slice(0, 5).map((item) => (
               <div
                 key={item.id}
-                className="flex items-center justify-between font-mono text-[11px] text-stone-600"
+                className="flex items-center justify-between gap-2 font-mono text-[11px] text-stone-600"
               >
                 <span className="truncate">
                   {item.task} · {item.requestedMode}
                   {item.fallbackUsed ? ' (fallback)' : ''}
                 </span>
                 <span className="ml-2 shrink-0 text-stone-900">
-                  {item.inferenceSource} · {item.latencyMs}ms
+                  {item.inferenceSource}
+                  {item.modelUsed ? ` (${item.modelUsed})` : ''} · {item.latencyMs}ms
                 </span>
               </div>
             ))}
@@ -127,7 +172,7 @@ export function TelemetryAndStrategy({
 
         {advice ? (
           <div className="mt-3 space-y-3 border-t border-stone-100 pt-3 text-xs">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-2">
               <span className="font-semibold text-stone-900">{advice.headline}</span>
               <span className="shrink-0 font-mono text-[11px] text-stone-500">
                 {advice.inferenceSource} · {advice.latencyMs}ms

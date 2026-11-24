@@ -6,7 +6,10 @@ import {
   mapRoutingModeToSdk,
   mapTelemetrySource,
   parseShopNoteHybrid,
+  runHybridBenchmark,
 } from '../firebaseAi';
+import { sanitizeEntryForCloud } from '../ledgerStore';
+import { resetFirebaseServicesForTest } from '../firebaseClient';
 
 describe('firebaseAi hybrid router', () => {
   it('maps UI routing modes to Firebase AI Logic InferenceMode constants', () => {
@@ -29,6 +32,7 @@ describe('firebaseAi hybrid router', () => {
   });
 
   afterEach(() => {
+    resetFirebaseServicesForTest();
     vi.unstubAllEnvs();
   });
 
@@ -50,5 +54,51 @@ describe('firebaseAi hybrid router', () => {
     const strategy = await generateMarginStrategyCloud([res.entry]);
     expect(strategy.advice.inferenceSource).toBe('PREVIEW_LOCAL');
     expect(JSON.stringify(strategy.advice.auditedPayload)).not.toContain('Mama Njeri');
+  });
+
+  it('strips rawInput before cloud persistence via sanitizeEntryForCloud', async () => {
+    vi.stubEnv('VITE_FIREBASE_API_KEY', '');
+    vi.stubEnv('VITE_FIREBASE_PROJECT_ID', '');
+    vi.stubEnv('VITE_FIREBASE_APP_ID', '');
+    const res = await parseShopNoteHybrid(
+      'Mama Njeri 0712 345 678 took 1x unga KES 175',
+      'PREFER_ON_DEVICE',
+    );
+    const sanitized = sanitizeEntryForCloud(res.entry);
+    expect('rawInput' in sanitized).toBe(false);
+    expect(sanitized.sanitizedInput).not.toContain('0712 345 678');
+  });
+
+  it('handles offline PREFER_ON_DEVICE via deterministic fallback and rejects ONLY_IN_CLOUD', async () => {
+    vi.stubEnv('VITE_FIREBASE_API_KEY', 'fake-key');
+    vi.stubEnv('VITE_FIREBASE_AUTH_DOMAIN', 'fake.firebaseapp.com');
+    vi.stubEnv('VITE_FIREBASE_PROJECT_ID', 'fake-proj');
+    vi.stubEnv('VITE_FIREBASE_APP_ID', 'fake-app');
+
+    const offlineRes = await parseShopNoteHybrid(
+      'Mama Njeri 0712 345 678 took 2x unga KES 350',
+      'PREFER_ON_DEVICE',
+      { offline: true },
+    );
+    expect(offlineRes.telemetry.inferenceSource).toBe('PREVIEW_LOCAL');
+    expect(offlineRes.telemetry.modelUsed).toBe('local-deterministic');
+
+    await expect(
+      parseShopNoteHybrid('2x unga KES 350', 'ONLY_IN_CLOUD', { offline: true }),
+    ).rejects.toThrow(/Offline mode active/);
+  });
+
+  it('runs hybrid benchmark comparison cleanly in preview mode', async () => {
+    vi.stubEnv('VITE_FIREBASE_API_KEY', '');
+    vi.stubEnv('VITE_FIREBASE_PROJECT_ID', '');
+    vi.stubEnv('VITE_FIREBASE_APP_ID', '');
+
+    const bench = await runHybridBenchmark(
+      'Baba Kevin +254722110998 paid KES 600 via M-PESA SJK4829LMN',
+    );
+    expect(bench.redactedCount).toBe(3);
+    expect(bench.sanitizedNote).not.toContain('Baba Kevin');
+    expect(bench.onDeviceRun.requestedMode).toBe('PREFER_ON_DEVICE');
+    expect(bench.cloudRun.requestedMode).toBe('ONLY_IN_CLOUD');
   });
 });

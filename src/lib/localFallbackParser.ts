@@ -134,6 +134,7 @@ export function buildPreviewLedgerEntry(rawInput: string, requestedMode: Routing
     summary: draft.summary,
     inferenceSource: 'PREVIEW_LOCAL',
     requestedMode,
+    modelUsed: 'local-deterministic',
     latencyMs,
   };
 }

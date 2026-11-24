@@ -8,37 +8,30 @@ import {
   detectOnDeviceNanoStatus,
   generateMarginStrategyCloud,
   parseShopNoteHybrid,
+  runHybridBenchmark,
   scanSupplierReceiptHybrid,
   warmupOnDeviceModel,
 } from './lib/firebaseAi';
 import { getFirebaseConfigStatus, getFirebaseServices } from './lib/firebaseClient';
+import {
+  LEDGER_STORAGE_KEY,
+  loadLedgerEntries,
+  loadLocalEntries,
+  persistLedgerEntry,
+  saveLocalEntries,
+} from './lib/ledgerStore';
 import { INITIAL_LEDGER_ENTRIES } from './lib/sampleData';
 import type {
+  HybridBenchmarkResult,
   InferenceTelemetry,
   LedgerEntry,
   RoutingMode,
   StrategyAdvice,
+  SyncState,
 } from './lib/types';
 
-const STORAGE_KEY = 'sokomind.ledger.v1';
-
-function loadInitialEntries(): LedgerEntry[] {
-  try {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved) {
-      const parsed = JSON.parse(saved) as LedgerEntry[];
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        return parsed;
-      }
-    }
-  } catch {
-    // Ignore storage corruption and fall back to seeded entries.
-  }
-  return INITIAL_LEDGER_ENTRIES;
-}
-
 export function App() {
-  const [entries, setEntries] = useState<LedgerEntry[]>(loadInitialEntries);
+  const [entries, setEntries] = useState<LedgerEntry[]>(() => loadLocalEntries(INITIAL_LEDGER_ENTRIES));
   const [telemetryLog, setTelemetryLog] = useState<InferenceTelemetry[]>(() => [
     {
       id: 'seed-tel-1',
@@ -46,6 +39,7 @@ export function App() {
       task: 'note_parse',
       requestedMode: 'PREFER_ON_DEVICE',
       inferenceSource: 'ON_DEVICE',
+      modelUsed: 'gemini-nano',
       latencyMs: 128,
       redactedCount: 2,
       fallbackUsed: false,
@@ -54,41 +48,60 @@ export function App() {
   ]);
   const [routingMode, setRoutingMode] = useState<RoutingMode>('PREFER_ON_DEVICE');
   const [simulatedOffline, setSimulatedOffline] = useState(false);
+  const [browserOffline, setBrowserOffline] = useState(() =>
+    typeof navigator !== 'undefined' ? !navigator.onLine : false,
+  );
+  const [syncState, setSyncState] = useState<SyncState>('local_only');
   const [nanoStatus, setNanoStatus] = useState<'available' | 'downloadable' | 'unavailable'>('unavailable');
   const [nanoDownloadPct, setNanoDownloadPct] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
   const [strategyBusy, setStrategyBusy] = useState(false);
+  const [benchmarkBusy, setBenchmarkBusy] = useState(false);
   const [advice, setAdvice] = useState<StrategyAdvice | null>(null);
+  const [benchmarkResult, setBenchmarkResult] = useState<HybridBenchmarkResult | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [showSetupBanner, setShowSetupBanner] = useState(true);
 
   const firebaseStatus = getFirebaseConfigStatus();
+  const effectiveOffline = simulatedOffline || browserOffline;
 
   useEffect(() => {
     getFirebaseServices();
     detectOnDeviceNanoStatus().then(setNanoStatus);
+    loadLedgerEntries(INITIAL_LEDGER_ENTRIES).then(({ entries: loaded, syncState: nextSync }) => {
+      setEntries(loaded);
+      setSyncState(nextSync);
+    });
+
+    const handleOnline = () => setBrowserOffline(false);
+    const handleOffline = () => setBrowserOffline(true);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
   }, []);
 
   useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
-    } catch {
-      // Ignore quota errors cleanly.
-    }
+    saveLocalEntries(entries);
   }, [entries]);
+
+  async function recordNewEntry(entry: LedgerEntry, telemetry: InferenceTelemetry) {
+    setEntries((prev) => [entry, ...prev]);
+    setTelemetryLog((prev) => [telemetry, ...prev]);
+    const nextSync = await persistLedgerEntry(entry);
+    setSyncState(nextSync);
+  }
 
   async function handleSubmitNote(rawText: string) {
     setErrorMsg(null);
     setBusy(true);
     try {
-      if (simulatedOffline && (routingMode === 'ONLY_IN_CLOUD' || routingMode === 'PREFER_IN_CLOUD')) {
-        throw new Error(
-          `Network offline simulation is enabled: ${routingMode} requires network connectivity unless switched to PREFER_ON_DEVICE or ONLY_ON_DEVICE.`,
-        );
-      }
-      const { entry, telemetry } = await parseShopNoteHybrid(rawText, routingMode);
-      setEntries((prev) => [entry, ...prev]);
-      setTelemetryLog((prev) => [telemetry, ...prev]);
+      const { entry, telemetry } = await parseShopNoteHybrid(rawText, routingMode, {
+        offline: effectiveOffline,
+      });
+      await recordNewEntry(entry, telemetry);
     } catch (err) {
       setErrorMsg(err instanceof Error ? err.message : 'Unable to process shop note.');
     } finally {
@@ -100,12 +113,11 @@ export function App() {
     setErrorMsg(null);
     setBusy(true);
     try {
-      if (simulatedOffline && routingMode === 'ONLY_IN_CLOUD') {
-        throw new Error('Cannot escalate receipt image while offline simulation is enabled.');
+      if (effectiveOffline && routingMode !== 'ONLY_ON_DEVICE') {
+        throw new Error('Cannot escalate receipt image while offline.');
       }
       const { entry, telemetry } = await scanSupplierReceiptHybrid(base64, mimeType, routingMode);
-      setEntries((prev) => [entry, ...prev]);
-      setTelemetryLog((prev) => [telemetry, ...prev]);
+      await recordNewEntry(entry, telemetry);
     } catch (err) {
       setErrorMsg(err instanceof Error ? err.message : 'Unable to scan supplier receipt.');
     } finally {
@@ -113,11 +125,16 @@ export function App() {
     }
   }
 
+  async function handleSettleTab(customerAlias: string, amountKes: number) {
+    const note = `${customerAlias} settled credit tab KES ${amountKes} via M-PESA`;
+    await handleSubmitNote(note);
+  }
+
   async function handleGenerateStrategy() {
     setErrorMsg(null);
     setStrategyBusy(true);
     try {
-      if (simulatedOffline && firebaseStatus.configured) {
+      if (effectiveOffline && firebaseStatus.configured) {
         throw new Error('Cloud Margin Advisor requires network connectivity (`ONLY_IN_CLOUD`).');
       }
       const { advice: nextAdvice, telemetry } = await generateMarginStrategyCloud(entries);
@@ -128,6 +145,36 @@ export function App() {
     } finally {
       setStrategyBusy(false);
     }
+  }
+
+  async function handleRunBenchmark() {
+    setErrorMsg(null);
+    setBenchmarkBusy(true);
+    try {
+      if (effectiveOffline && firebaseStatus.configured) {
+        throw new Error('Hybrid latency benchmark requires network connectivity for Cloud comparison.');
+      }
+      const sample = 'Mama Njeri 0712 345 678 took 2x unga ya ugali KES 350, paid KES 200 cash, deni KES 150';
+      const result = await runHybridBenchmark(sample);
+      setBenchmarkResult(result);
+      setTelemetryLog((prev) => [result.cloudRun, result.onDeviceRun, ...prev]);
+    } catch (err) {
+      setErrorMsg(err instanceof Error ? err.message : 'Unable to complete hybrid benchmark.');
+    } finally {
+      setBenchmarkBusy(false);
+    }
+  }
+
+  function handleResetDemo() {
+    try {
+      localStorage.removeItem(LEDGER_STORAGE_KEY);
+    } catch {
+      // Ignore storage restrictions cleanly.
+    }
+    setEntries(INITIAL_LEDGER_ENTRIES);
+    setAdvice(null);
+    setBenchmarkResult(null);
+    setErrorMsg(null);
   }
 
   async function handleDownloadNano() {
@@ -151,7 +198,9 @@ export function App() {
         nanoStatus={nanoStatus}
         nanoDownloadPct={nanoDownloadPct}
         onDownloadNano={handleDownloadNano}
+        syncState={syncState}
         simulatedOffline={simulatedOffline}
+        browserOffline={browserOffline}
         onToggleOffline={() => setSimulatedOffline((prev) => !prev)}
         routingMode={routingMode}
         onChangeMode={setRoutingMode}
@@ -202,7 +251,12 @@ export function App() {
               onSubmitNote={handleSubmitNote}
               onUploadReceipt={handleUploadReceipt}
             />
-            <LedgerTable entries={entries} />
+            <LedgerTable
+              entries={entries}
+              onSettleTab={handleSettleTab}
+              onResetDemo={handleResetDemo}
+              busy={busy}
+            />
           </div>
 
           <div className="lg:col-span-5">
@@ -211,7 +265,10 @@ export function App() {
               telemetryLog={telemetryLog}
               advice={advice}
               strategyBusy={strategyBusy}
+              benchmarkBusy={benchmarkBusy}
+              benchmarkResult={benchmarkResult}
               onGenerateStrategy={handleGenerateStrategy}
+              onRunBenchmark={handleRunBenchmark}
             />
           </div>
         </div>

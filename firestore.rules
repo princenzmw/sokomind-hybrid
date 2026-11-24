@@ -1,0 +1,184 @@
+rules_version = '2';
+
+// ===============================================================
+// Assumed Data Model
+// ===============================================================
+//
+// This security rules file assumes the following Firestore structure
+// for the SokoMind Hybrid AI retail ledger application:
+//
+// Collection: /shops/{shopId}/entries/{entryId}
+// Document ID: {entryId} (owned by authenticated shop user where request.auth.uid == shopId)
+// Fields:
+//   - id: string (required, immutable, 1..128 chars) - client entry identifier
+//   - createdAt: timestamp | ISO-8601 string (required, immutable, <= 64 chars if string) - creation timestamp
+//   - sanitizedInput: string (required, 0..4000 chars) - PII-redacted shop note or scan label
+//   - category: string (required, enum: 'Sale' | 'Credit Tab' | 'Credit Repayment' | 'Wholesale Restock' | 'Shop Expense')
+//   - paymentMethod: string (required, enum: 'CASH' | 'MPESA' | 'CREDIT' | 'MIXED' | 'SUPPLIER_EXPENSE')
+//   - totalKes: number (required, 0..100000000) - total amount in KES
+//   - paidKes: number (required, 0..100000000) - paid amount in KES
+//   - creditOwedKes: number (required, 0..100000000) - remaining credit balance in KES
+//   - redactionCount: number (optional, 0..10000) - count of PII tokens redacted on-device
+//   - customerAlias: string (optional, 1..128 chars) - anonymized customer label
+//   - items: list (optional, max 100 line items) - parsed SKU line items
+//   - estimatedMarginPct: number (optional, -100..100) - estimated margin percentage
+//   - summary: string (optional, 0..500 chars) - short ledger summary
+//   - inferenceSource: string (optional, enum: 'ON_DEVICE' | 'IN_CLOUD' | 'PREVIEW_LOCAL')
+//   - requestedMode: string (optional, enum: 'PREFER_ON_DEVICE' | 'ONLY_ON_DEVICE' | 'PREFER_IN_CLOUD' | 'ONLY_IN_CLOUD')
+//   - modelUsed: string (optional, 1..128 chars) - model identifier
+//   - latencyMs: number (optional, 0..600000) - inference latency in milliseconds
+//
+// Forbidden Fields:
+//   - rawInput: MUST NOT be stored in Firestore (contains unredacted customer PII)
+//
+// ===============================================================
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+
+    // Check if the request comes from an authenticated user.
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Check if the authenticated user owns the target shop/user scope.
+    function isOwner(shopId) {
+      return isAuthenticated() && request.auth.uid == shopId;
+    }
+
+    // Validate that all required fields exist on the incoming document.
+    function hasRequiredFields(fields) {
+      return request.resource.data.keys().hasAll(fields);
+    }
+
+    // Enforce a strict field allowlist so arbitrary/unrecognized fields are rejected.
+    function hasOnlyAllowedFields(fields) {
+      return request.resource.data.keys().hasOnly(fields);
+    }
+
+    // Ensure immutable fields cannot be altered on update.
+    function areImmutableFieldsUnchanged(fields) {
+      return !request.resource.data.diff(resource.data).affectedKeys().hasAny(fields);
+    }
+
+    // Validate an optional string field if present on the incoming document.
+    function isValidOptionalString(data, field, minLen, maxLen) {
+      return !(field in data) ||
+        (data[field] is string &&
+         data[field].size() >= minLen &&
+         data[field].size() <= maxLen);
+    }
+
+    // Validate an ISO-8601 UTC date string format (YYYY-MM-DDTHH:MM:SS...).
+    function isValidDateString(dateStr) {
+      return dateStr is string &&
+        dateStr.size() <= 64 &&
+        dateStr.matches("^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}.*Z?$");
+    }
+
+    // Accept either a Firestore Timestamp or a bounded ISO-8601 date string.
+    function isValidTimestampOrDateString(val) {
+      return val is timestamp || isValidDateString(val);
+    }
+
+    // ===============================================================
+    // Domain Validators
+    // ===============================================================
+
+    function isValidLedgerEntry(data) {
+      return !('rawInput' in data)
+        && hasRequiredFields([
+          'id',
+          'createdAt',
+          'sanitizedInput',
+          'category',
+          'paymentMethod',
+          'totalKes',
+          'paidKes',
+          'creditOwedKes'
+        ])
+        && hasOnlyAllowedFields([
+          'id',
+          'createdAt',
+          'sanitizedInput',
+          'redactionCount',
+          'customerAlias',
+          'category',
+          'paymentMethod',
+          'items',
+          'totalKes',
+          'paidKes',
+          'creditOwedKes',
+          'estimatedMarginPct',
+          'summary',
+          'inferenceSource',
+          'requestedMode',
+          'modelUsed',
+          'latencyMs'
+        ])
+        && data.id is string
+        && data.id.size() > 0
+        && data.id.size() <= 128
+        && isValidTimestampOrDateString(data.createdAt)
+        && data.sanitizedInput is string
+        && data.sanitizedInput.size() <= 4000
+        && data.category is string
+        && data.category in [
+          'Sale',
+          'Credit Tab',
+          'Credit Repayment',
+          'Wholesale Restock',
+          'Shop Expense'
+        ]
+        && data.paymentMethod is string
+        && data.paymentMethod in [
+          'CASH',
+          'MPESA',
+          'CREDIT',
+          'MIXED',
+          'SUPPLIER_EXPENSE'
+        ]
+        && data.totalKes is number
+        && data.totalKes >= 0
+        && data.totalKes <= 100000000
+        && data.paidKes is number
+        && data.paidKes >= 0
+        && data.paidKes <= 100000000
+        && data.creditOwedKes is number
+        && data.creditOwedKes >= 0
+        && data.creditOwedKes <= 100000000
+        && (!('redactionCount' in data) || (data.redactionCount is number && data.redactionCount >= 0 && data.redactionCount <= 10000))
+        && isValidOptionalString(data, 'customerAlias', 1, 128)
+        && (!('items' in data) || (data.items is list && data.items.size() <= 100))
+        && (!('estimatedMarginPct' in data) || (data.estimatedMarginPct is number && data.estimatedMarginPct >= -100 && data.estimatedMarginPct <= 100))
+        && isValidOptionalString(data, 'summary', 0, 500)
+        && (!('inferenceSource' in data) || (data.inferenceSource is string && data.inferenceSource in ['ON_DEVICE', 'IN_CLOUD', 'PREVIEW_LOCAL']))
+        && (!('requestedMode' in data) || (data.requestedMode is string && data.requestedMode in ['PREFER_ON_DEVICE', 'ONLY_ON_DEVICE', 'PREFER_IN_CLOUD', 'ONLY_IN_CLOUD']))
+        && isValidOptionalString(data, 'modelUsed', 1, 128)
+        && (!('latencyMs' in data) || (data.latencyMs is number && data.latencyMs >= 0 && data.latencyMs <= 600000));
+    }
+
+    // ===============================================================
+    // Collection Rules
+    // ===============================================================
+
+    // Per-shop sanitized ledger entries: only the authenticated shop owner
+    // (request.auth.uid == shopId) may read, create, update, or delete entries.
+    match /shops/{shopId}/entries/{entryId} {
+      allow read, delete: if isOwner(shopId);
+      allow create: if isOwner(shopId) && isValidLedgerEntry(request.resource.data);
+      allow update: if isOwner(shopId)
+        && isValidLedgerEntry(request.resource.data)
+        && areImmutableFieldsUnchanged(['id', 'createdAt']);
+    }
+
+    // Default deny fallback for all other collections and subcollections.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "name": "SokoMind Hybrid AI Ledger",
+  "short_name": "SokoMind",
+  "description": "Privacy-first hybrid AI retail ledger powered by Chrome Gemini Nano and Cloud Gemini via Firebase AI Logic.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#fafaf9",
+  "theme_color": "#065f46",
+  "icons": []
+}

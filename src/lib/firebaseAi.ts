@@ -17,6 +17,7 @@ import {
   redactShopNote,
 } from './privacyFirewall';
 import type {
+  HybridBenchmarkResult,
   InferenceTelemetry,
   LedgerCategory,
   LedgerEntry,
@@ -27,7 +28,13 @@ import type {
   TelemetrySource,
 } from './types';
 
-const CLOUD_MODEL = 'gemini-3.8-flash';
+const PRIMARY_CLOUD_MODEL = 'gemini-3.8-flash';
+const FALLBACK_CLOUD_MODEL = 'gemini-3.5-flash-lite';
+
+function isTransientCloudError(err: unknown): boolean {
+  const msg = err instanceof Error ? err.message : String(err);
+  return /(?:429|500|503|INTERNAL|UNAVAILABLE|high demand|overloaded|quota)/i.test(msg);
+}
 
 const NOTE_SYSTEM_PROMPT = `You extract East African micro-retail shop notes (English, Swahili, and Sheng) into strict JSON.
 Return a single JSON object matching this shape:
@@ -192,9 +199,26 @@ export interface HybridNoteResult {
   telemetry: InferenceTelemetry;
 }
 
+async function withCloudResilience<T>(
+  requestedMode: RoutingMode,
+  runner: (cloudModel: string) => Promise<T>,
+): Promise<{ result: T; cloudModelUsed: string }> {
+  try {
+    const result = await runner(PRIMARY_CLOUD_MODEL);
+    return { result, cloudModelUsed: PRIMARY_CLOUD_MODEL };
+  } catch (err) {
+    if (requestedMode !== 'ONLY_ON_DEVICE' && isTransientCloudError(err)) {
+      const result = await runner(FALLBACK_CLOUD_MODEL);
+      return { result, cloudModelUsed: FALLBACK_CLOUD_MODEL };
+    }
+    throw err;
+  }
+}
+
 export async function parseShopNoteHybrid(
   rawInput: string,
   requestedMode: RoutingMode,
+  options?: { offline?: boolean },
 ): Promise<HybridNoteResult> {
   const services = getFirebaseServices();
   if (!services) {
@@ -207,6 +231,7 @@ export async function parseShopNoteHybrid(
         task: 'note_parse',
         requestedMode,
         inferenceSource: 'PREVIEW_LOCAL',
+        modelUsed: 'local-deterministic',
         latencyMs: entry.latencyMs,
         redactedCount: entry.redactionCount,
         fallbackUsed: false,
@@ -216,34 +241,67 @@ export async function parseShopNoteHybrid(
     };
   }
 
+  if (options?.offline) {
+    if (requestedMode === 'ONLY_IN_CLOUD' || requestedMode === 'PREFER_IN_CLOUD') {
+      throw new Error(
+        `Offline mode active: ${requestedMode} requires network connectivity unless switched to PREFER_ON_DEVICE or ONLY_ON_DEVICE.`,
+      );
+    }
+    const nano = await detectOnDeviceNanoStatus();
+    if (nano !== 'available') {
+      const entry = buildPreviewLedgerEntry(rawInput, requestedMode);
+      return {
+        entry,
+        telemetry: {
+          id: `tel-${Date.now()}-${Math.random().toString(16).slice(2, 6)}`,
+          timestamp: entry.createdAt,
+          task: 'note_parse',
+          requestedMode,
+          inferenceSource: 'PREVIEW_LOCAL',
+          modelUsed: 'local-deterministic',
+          latencyMs: entry.latencyMs,
+          redactedCount: entry.redactionCount,
+          fallbackUsed: false,
+          estimatedCloudTokensSaved: 260,
+          note: 'Offline without Chrome Gemini Nano: parsed deterministically on device and queued for sync.',
+        },
+      };
+    }
+  }
+
   const started = performance.now();
   const { sanitizedText, redactions } = redactShopNote(rawInput);
   const ai = getAiClient(services.app);
-  const model = getGenerativeModel(ai, {
-    mode: mapRoutingModeToSdk(requestedMode),
-    inCloudParams: {
-      model: CLOUD_MODEL,
-      systemInstruction: NOTE_SYSTEM_PROMPT,
-      generationConfig: {
-        responseMimeType: 'application/json',
-        temperature: 0.1,
+  const effectiveMode = options?.offline ? 'ONLY_ON_DEVICE' : requestedMode;
+
+  const { result, cloudModelUsed } = await withCloudResilience(effectiveMode, (cloudModel) => {
+    const model = getGenerativeModel(ai, {
+      mode: mapRoutingModeToSdk(effectiveMode),
+      inCloudParams: {
+        model: cloudModel,
+        systemInstruction: NOTE_SYSTEM_PROMPT,
+        generationConfig: {
+          responseMimeType: 'application/json',
+          temperature: 0.1,
+        },
       },
-    },
-    onDeviceParams: {
-      createOptions: {
-        initialPrompts: [
-          { role: 'system', content: [{ type: 'text', value: NOTE_SYSTEM_PROMPT }] },
-        ],
+      onDeviceParams: {
+        createOptions: {
+          initialPrompts: [
+            { role: 'system', content: [{ type: 'text', value: NOTE_SYSTEM_PROMPT }] },
+          ],
+        },
       },
-    },
+    });
+    return model.generateContent(
+      `Extract this Kenyan retail shop note into ledger JSON. PII tokens have already been masked.\nNote: ${sanitizedText}`,
+    );
   });
 
-  const result = await model.generateContent(
-    `Extract this Kenyan retail shop note into ledger JSON. PII tokens have already been masked.\nNote: ${sanitizedText}`,
-  );
   const latencyMs = Math.max(1, Math.round(performance.now() - started));
   const payload = extractJsonObject(result.response.text());
-  const source = mapTelemetrySource(result.response.inferenceSource, requestedMode);
+  const source = mapTelemetrySource(result.response.inferenceSource, effectiveMode);
+  const modelUsed = source === 'ON_DEVICE' ? 'gemini-nano' : cloudModelUsed;
 
   const rawCategory = String(payload.category ?? 'Sale') as LedgerCategory;
   const category: LedgerCategory = VALID_CATEGORIES.has(rawCategory) ? rawCategory : 'Sale';
@@ -254,8 +312,7 @@ export async function parseShopNoteHybrid(
   const paidKes = Math.max(0, Number(payload.paidKes ?? 0) || 0);
   const creditOwedKes = Math.max(0, Number(payload.creditOwedKes ?? Math.max(0, totalKes - paidKes)) || 0);
   const items = coerceLineItems(payload.items, totalKes);
-  const fallbackUsed =
-    requestedMode === 'PREFER_ON_DEVICE' && source === 'IN_CLOUD';
+  const fallbackUsed = effectiveMode === 'PREFER_ON_DEVICE' && source === 'IN_CLOUD';
 
   const entry: LedgerEntry = {
     id: `entry-${Date.now()}-${Math.random().toString(16).slice(2, 6)}`,
@@ -274,6 +331,7 @@ export async function parseShopNoteHybrid(
     summary: String(payload.summary ?? `${category}: KES ${totalKes.toLocaleString()}`),
     inferenceSource: source,
     requestedMode,
+    modelUsed,
     latencyMs,
   };
 
@@ -285,12 +343,13 @@ export async function parseShopNoteHybrid(
       task: 'note_parse',
       requestedMode,
       inferenceSource: source,
+      modelUsed,
       latencyMs,
       redactedCount: redactions.length,
       fallbackUsed,
       estimatedCloudTokensSaved: source === 'ON_DEVICE' ? 280 : 0,
       note: fallbackUsed
-        ? 'On-device model unavailable or fell back; completed via Cloud Gemini.'
+        ? `On-device model unavailable; completed via Cloud ${cloudModelUsed}.`
         : undefined,
     },
   };
@@ -314,6 +373,7 @@ export async function scanSupplierReceiptHybrid(
         task: 'receipt_scan',
         requestedMode,
         inferenceSource: 'PREVIEW_LOCAL',
+        modelUsed: 'local-deterministic',
         latencyMs: entry.latencyMs,
         redactedCount: entry.redactionCount,
         fallbackUsed: false,
@@ -325,25 +385,28 @@ export async function scanSupplierReceiptHybrid(
 
   const started = performance.now();
   const ai = getAiClient(services.app);
-  const model = getGenerativeModel(ai, {
-    mode: mapRoutingModeToSdk(requestedMode),
-    inCloudParams: {
-      model: CLOUD_MODEL,
-      systemInstruction: NOTE_SYSTEM_PROMPT,
-      generationConfig: {
-        responseMimeType: 'application/json',
-        temperature: 0.1,
+  const { result, cloudModelUsed } = await withCloudResilience(requestedMode, (cloudModel) => {
+    const model = getGenerativeModel(ai, {
+      mode: mapRoutingModeToSdk(requestedMode),
+      inCloudParams: {
+        model: cloudModel,
+        systemInstruction: NOTE_SYSTEM_PROMPT,
+        generationConfig: {
+          responseMimeType: 'application/json',
+          temperature: 0.1,
+        },
       },
-    },
+    });
+    return model.generateContent([
+      'Extract items, total KES, paid KES, credit owed KES, and category from this retail receipt or handwritten notebook image.',
+      { type: 'inlineData', inlineData: { data: base64Data, mimeType } },
+    ]);
   });
 
-  const result = await model.generateContent([
-    'Extract items, total KES, paid KES, credit owed KES, and category from this retail receipt or handwritten notebook image.',
-    { type: 'inlineData', inlineData: { data: base64Data, mimeType } },
-  ]);
   const latencyMs = Math.max(1, Math.round(performance.now() - started));
   const payload = extractJsonObject(result.response.text());
   const source = mapTelemetrySource(result.response.inferenceSource, requestedMode);
+  const modelUsed = source === 'ON_DEVICE' ? 'gemini-nano' : cloudModelUsed;
 
   const totalKes = Math.max(0, Number(payload.totalKes ?? 0) || 0);
   const paidKes = Math.max(0, Number(payload.paidKes ?? 0) || 0);
@@ -371,6 +434,7 @@ export async function scanSupplierReceiptHybrid(
     summary: String(payload.summary ?? `Receipt Scan: KES ${totalKes.toLocaleString()}`),
     inferenceSource: source,
     requestedMode,
+    modelUsed,
     latencyMs,
   };
 
@@ -382,6 +446,7 @@ export async function scanSupplierReceiptHybrid(
       task: 'receipt_scan',
       requestedMode,
       inferenceSource: source,
+      modelUsed,
       latencyMs,
       redactedCount: 0,
       fallbackUsed: requestedMode === 'PREFER_ON_DEVICE' && source === 'IN_CLOUD',
@@ -407,6 +472,7 @@ export async function generateMarginStrategyCloud(entries: LedgerEntry[]): Promi
         task: 'margin_strategy',
         requestedMode: 'ONLY_IN_CLOUD',
         inferenceSource: 'PREVIEW_LOCAL',
+        modelUsed: 'local-deterministic',
         latencyMs: advice.latencyMs,
         redactedCount: entries.reduce((sum, e) => sum + e.redactionCount, 0),
         fallbackUsed: false,
@@ -419,21 +485,23 @@ export async function generateMarginStrategyCloud(entries: LedgerEntry[]): Promi
   const started = performance.now();
   const auditedPayload = buildAnonymizedLedgerSummary(entries);
   const ai = getAiClient(services.app);
-  const model = getGenerativeModel(ai, {
-    mode: InferenceMode.ONLY_IN_CLOUD,
-    inCloudParams: {
-      model: CLOUD_MODEL,
-      systemInstruction: STRATEGY_SYSTEM_PROMPT,
-      generationConfig: {
-        responseMimeType: 'application/json',
-        temperature: 0.2,
+  const { result, cloudModelUsed } = await withCloudResilience('ONLY_IN_CLOUD', (cloudModel) => {
+    const model = getGenerativeModel(ai, {
+      mode: InferenceMode.ONLY_IN_CLOUD,
+      inCloudParams: {
+        model: cloudModel,
+        systemInstruction: STRATEGY_SYSTEM_PROMPT,
+        generationConfig: {
+          responseMimeType: 'application/json',
+          temperature: 0.2,
+        },
       },
-    },
+    });
+    return model.generateContent(
+      `Analyze this anonymized micro-retail daily ledger summary and provide concrete restock and credit-collection advice in JSON:\n${JSON.stringify(auditedPayload, null, 2)}`,
+    );
   });
 
-  const result = await model.generateContent(
-    `Analyze this anonymized micro-retail daily ledger summary and provide concrete restock and credit-collection advice in JSON:\n${JSON.stringify(auditedPayload, null, 2)}`,
-  );
   const latencyMs = Math.max(1, Math.round(performance.now() - started));
   const payload = extractJsonObject(result.response.text());
   const source = mapTelemetrySource(result.response.inferenceSource, 'ONLY_IN_CLOUD');
@@ -461,10 +529,25 @@ export async function generateMarginStrategyCloud(entries: LedgerEntry[]): Promi
       task: 'margin_strategy',
       requestedMode: 'ONLY_IN_CLOUD',
       inferenceSource: source,
+      modelUsed: cloudModelUsed,
       latencyMs,
       redactedCount: entries.reduce((sum, e) => sum + e.redactionCount, 0),
       fallbackUsed: false,
       estimatedCloudTokensSaved: 0,
     },
+  };
+}
+
+export async function runHybridBenchmark(rawInput: string): Promise<HybridBenchmarkResult> {
+  const { sanitizedText, redactions } = redactShopNote(rawInput);
+  const onDevice = await parseShopNoteHybrid(rawInput, 'PREFER_ON_DEVICE');
+  const cloud = await parseShopNoteHybrid(rawInput, 'ONLY_IN_CLOUD');
+
+  return {
+    note: rawInput,
+    sanitizedNote: sanitizedText,
+    redactedCount: redactions.length,
+    onDeviceRun: onDevice.telemetry,
+    cloudRun: cloud.telemetry,
   };
 }
