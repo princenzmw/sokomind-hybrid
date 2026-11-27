@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Camera, FileSpreadsheet, Lock, Mic, MicOff, Send, Sparkles } from 'lucide-react';
+import { ArrowRight, Camera, FileSpreadsheet, Lock, Mic, MicOff, Send, ShieldCheck, Sparkles } from 'lucide-react';
 import { redactShopNote } from '../lib/privacyFirewall';
 import { generateSampleSupplierReceipt } from '../lib/receiptGenerator';
 import { SAMPLE_PRESETS } from '../lib/sampleData';
@@ -43,11 +43,11 @@ function getSpeechRecognitionCtor(): SpeechCtor | null {
 function redactionChipStyle(kind: PrivacyRedaction['kind']): string {
   switch (kind) {
     case 'PHONE':
-      return 'border-emerald-300 bg-emerald-50 text-emerald-800';
+      return 'border-[#0F4C3A]/35 bg-[#EEF1EC] text-[#0F4C3A]';
     case 'MPESA_CODE':
-      return 'border-sky-300 bg-sky-50 text-sky-800';
+      return 'border-[#1D4ED8]/35 bg-[#EFF6FF] text-[#1D4ED8]';
     case 'CUSTOMER_NAME':
-      return 'border-amber-300 bg-amber-50 text-amber-900';
+      return 'border-[#B45309]/40 bg-[#FEF8EC] text-[#B45309]';
     case 'NATIONAL_ID':
       return 'border-rose-300 bg-rose-50 text-rose-800';
     case 'EMAIL':
@@ -151,16 +151,18 @@ export function QuickEntryPanel({
   }
 
   return (
-    <section className="rounded-xl border border-stone-200 bg-white p-5 shadow-xs">
-      <div className="flex flex-wrap items-center justify-between gap-2">
+    <section className="rounded-xs border border-[#C5D0C4] bg-white p-5">
+      <div className="flex flex-wrap items-start justify-between gap-2 border-b border-[#C5D0C4]/70 pb-3">
         <div>
-          <h2 className="text-base font-semibold text-stone-900">Quick Shop Note &amp; Receipt Capture</h2>
-          <p className="text-xs text-stone-500">
-            Enter Swahili, Sheng, or English daily sales, customer credit tabs, or wholesale stock notes.
+          <h2 className="font-display text-lg font-semibold text-[#10211A]">
+            Counter Note &amp; Receipt Intake
+          </h2>
+          <p className="mt-0.5 text-xs text-[#43554C]">
+            Enter Swahili, Sheng, or English sales, customer credit tabs, or wholesale stock notes.
           </p>
         </div>
-        <span className="inline-flex items-center gap-1 rounded-md bg-stone-100 px-2 py-1 font-mono text-[11px] text-stone-700">
-          <Lock className="h-3 w-3 text-emerald-700" />
+        <span className="inline-flex items-center gap-1.5 rounded-xs border border-[#C5D0C4] bg-[#EEF1EC] px-2.5 py-1 font-mono text-[11px] font-medium text-[#0F4C3A]">
+          <Lock className="h-3 w-3" />
           {isStrictLocal ? 'Strict On-Device Only' : 'PII Firewall Active'}
         </span>
       </div>
@@ -171,7 +173,7 @@ export function QuickEntryPanel({
             key={preset.id}
             type="button"
             onClick={() => setNoteText(preset.text)}
-            className="cursor-pointer rounded-md border border-stone-200 bg-stone-50 px-2.5 py-1 text-xs text-stone-700 transition hover:border-emerald-700 hover:bg-emerald-50/40"
+            className="cursor-pointer rounded-xs border border-[#C5D0C4] bg-[#EEF1EC]/55 px-2.5 py-1 text-xs font-medium text-[#10211A] transition hover:border-[#0F4C3A] hover:bg-[#EEF1EC]"
           >
             {preset.label}
           </button>
@@ -184,26 +186,45 @@ export function QuickEntryPanel({
           value={noteText}
           onChange={(e) => setNoteText(e.target.value)}
           placeholder="Example: Mama Njeri 0712 345 678 took 2x unga KES 350, paid KES 200 cash, deni KES 150"
-          className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-stone-900 placeholder:text-stone-400 focus:border-emerald-700 focus:outline-none"
+          className="w-full rounded-xs border border-[#C5D0C4] bg-white px-3 py-2 text-sm text-[#10211A] placeholder:text-[#708278] focus:border-[#0F4C3A] focus:outline-none"
         />
 
         {noteText.trim() && (
-          <div className="rounded-lg border border-stone-200 bg-stone-50 p-3 text-xs">
-            <div className="flex flex-wrap items-center justify-between gap-2 font-medium text-stone-700">
-              <span>Live On-Device PII Firewall Preview</span>
-              <span className="font-mono text-[11px] text-emerald-800">
-                {previewRedaction.redactions.length} masked before any cloud fallback
+          <div className="rounded-xs border border-[#C5D0C4] bg-[#EEF1EC]/50 text-xs">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#C5D0C4] bg-white px-3 py-2 font-medium text-[#10211A]">
+              <span className="inline-flex items-center gap-1.5">
+                <ShieldCheck className="h-3.5 w-3.5 text-[#0F4C3A]" />
+                Live On-Device PII Firewall Gate
+              </span>
+              <span className="font-mono text-[11px] text-[#0F4C3A]">
+                {previewRedaction.redactions.length} masked before model prompt
               </span>
             </div>
-            <p className="mt-1 font-mono text-[11px] leading-relaxed text-stone-600">
-              {previewRedaction.sanitizedText}
-            </p>
+
+            <div className="grid grid-cols-1 divide-y divide-[#C5D0C4] sm:grid-cols-2 sm:divide-x sm:divide-y-0">
+              <div className="p-3">
+                <div className="text-[11px] font-semibold text-[#43554C]">Raw Counter Note</div>
+                <p className="mt-1 font-mono text-[11px] leading-relaxed text-[#43554C]">
+                  {noteText.trim()}
+                </p>
+              </div>
+              <div className="bg-white p-3">
+                <div className="flex items-center gap-1 text-[11px] font-semibold text-[#0F4C3A]">
+                  <ArrowRight className="h-3 w-3" />
+                  Scrubbed Wire Prompt
+                </div>
+                <p className="mt-1 font-mono text-[11px] leading-relaxed text-[#10211A]">
+                  {previewRedaction.sanitizedText}
+                </p>
+              </div>
+            </div>
+
             {previewRedaction.redactions.length > 0 && (
-              <div className="mt-2 flex flex-wrap gap-1.5">
+              <div className="flex flex-wrap gap-1.5 border-t border-[#C5D0C4] bg-white px-3 py-2">
                 {previewRedaction.redactions.map((item, idx) => (
                   <span
                     key={`${item.kind}-${idx}`}
-                    className={`rounded border px-1.5 py-0.5 font-mono text-[10px] font-medium ${redactionChipStyle(item.kind)}`}
+                    className={`rounded-xs border px-1.5 py-0.5 font-mono text-[10px] font-medium ${redactionChipStyle(item.kind)}`}
                   >
                     {item.kind} -&gt; {item.masked}
                   </span>
@@ -213,7 +234,7 @@ export function QuickEntryPanel({
           </div>
         )}
 
-        <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
           <div className="flex flex-wrap items-center gap-2">
             <input
               ref={fileInputRef}
@@ -226,9 +247,9 @@ export function QuickEntryPanel({
               type="button"
               disabled={busy}
               onClick={() => fileInputRef.current?.click()}
-              className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-stone-300 bg-white px-3 py-2 text-xs font-medium text-stone-700 transition hover:bg-stone-50 disabled:opacity-50"
+              className="inline-flex cursor-pointer items-center gap-1.5 rounded-xs border border-[#C5D0C4] bg-white px-3 py-2 text-xs font-medium text-[#10211A] transition hover:bg-[#EEF1EC] disabled:opacity-50"
             >
-              <Camera className="h-3.5 w-3.5 text-emerald-700" />
+              <Camera className="h-3.5 w-3.5 text-[#0F4C3A]" />
               Scan Receipt (JPEG/PNG)
             </button>
 
@@ -236,9 +257,9 @@ export function QuickEntryPanel({
               type="button"
               disabled={busy}
               onClick={handleSampleReceiptScan}
-              className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-emerald-300 bg-emerald-50/70 px-3 py-2 text-xs font-medium text-emerald-900 transition hover:bg-emerald-100 disabled:opacity-50"
+              className="inline-flex cursor-pointer items-center gap-1.5 rounded-xs border border-[#0F4C3A]/40 bg-[#EEF1EC] px-3 py-2 text-xs font-medium text-[#0F4C3A] transition hover:bg-[#dce4dc] disabled:opacity-50"
             >
-              <FileSpreadsheet className="h-3.5 w-3.5 text-emerald-700" />
+              <FileSpreadsheet className="h-3.5 w-3.5 text-[#0F4C3A]" />
               Try Sample Receipt
             </button>
 
@@ -247,13 +268,13 @@ export function QuickEntryPanel({
                 type="button"
                 disabled={busy}
                 onClick={handleToggleDictation}
-                className={`inline-flex cursor-pointer items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition ${
+                className={`inline-flex cursor-pointer items-center gap-1.5 rounded-xs border px-3 py-2 text-xs font-medium transition ${
                   listening
-                    ? 'border-red-300 bg-red-50 text-red-800'
-                    : 'border-stone-300 bg-white text-stone-700 hover:bg-stone-50'
+                    ? 'border-red-400 bg-red-50 text-red-800'
+                    : 'border-[#C5D0C4] bg-white text-[#10211A] hover:bg-[#EEF1EC]'
                 }`}
               >
-                {listening ? <MicOff className="h-3.5 w-3.5" /> : <Mic className="h-3.5 w-3.5 text-emerald-700" />}
+                {listening ? <MicOff className="h-3.5 w-3.5" /> : <Mic className="h-3.5 w-3.5 text-[#0F4C3A]" />}
                 {listening ? 'Stop Mic' : 'Dictate Note'}
               </button>
             )}
@@ -262,7 +283,7 @@ export function QuickEntryPanel({
           <button
             type="submit"
             disabled={busy || !noteText.trim()}
-            className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg bg-emerald-800 px-4 py-2 text-xs font-semibold text-white transition hover:bg-emerald-900 disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex cursor-pointer items-center gap-1.5 rounded-xs bg-[#0F4C3A] px-4 py-2 text-xs font-semibold text-white transition hover:bg-[#0B3B2D] disabled:cursor-not-allowed disabled:opacity-50"
           >
             {busy ? <Sparkles className="h-3.5 w-3.5 animate-pulse" /> : <Send className="h-3.5 w-3.5" />}
             {busy ? 'Routing Inference...' : 'Record Ledger Entry'}
@@ -270,24 +291,24 @@ export function QuickEntryPanel({
         </div>
 
         {receiptPreview && (
-          <div className="flex items-center justify-between gap-3 rounded-lg border border-stone-200 bg-stone-50 p-2.5 text-xs">
+          <div className="flex items-center justify-between gap-3 rounded-xs border border-[#C5D0C4] bg-[#EEF1EC]/55 p-2.5 text-xs">
             <div className="flex items-center gap-2.5">
               <img
                 src={receiptPreview}
                 alt="Scanned wholesale supplier receipt"
-                className="h-14 w-12 rounded border border-stone-300 object-cover"
+                className="h-14 w-12 rounded-xs border border-[#C5D0C4] object-cover"
               />
               <div>
-                <div className="font-medium text-stone-800">Last Scanned Supplier Receipt</div>
-                <div className="text-[11px] text-stone-500">
-                  Sent directly as inline PNG/JPEG multimodal input when scanning.
+                <div className="font-medium text-[#10211A]">Last Scanned Supplier Receipt</div>
+                <div className="text-[11px] text-[#43554C]">
+                  Sent as inline PNG/JPEG multimodal input during scanning.
                 </div>
               </div>
             </div>
             <button
               type="button"
               onClick={() => setReceiptPreview(null)}
-              className="cursor-pointer rounded px-2 py-1 text-[11px] text-stone-500 hover:bg-stone-200"
+              className="cursor-pointer rounded-xs px-2 py-1 text-[11px] text-[#43554C] hover:bg-white"
             >
               Hide
             </button>

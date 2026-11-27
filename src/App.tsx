@@ -20,6 +20,7 @@ import {
   persistLedgerEntry,
   saveLocalEntries,
 } from './lib/ledgerStore';
+import { buildAnonymizedLedgerSummary } from './lib/privacyFirewall';
 import { INITIAL_LEDGER_ENTRIES } from './lib/sampleData';
 import type {
   HybridBenchmarkResult,
@@ -64,6 +65,8 @@ export function App() {
 
   const firebaseStatus = getFirebaseConfigStatus();
   const effectiveOffline = simulatedOffline || browserOffline;
+  const ledgerSummary = buildAnonymizedLedgerSummary(entries);
+  const tokensSaved = telemetryLog.reduce((sum, t) => sum + t.estimatedCloudTokensSaved, 0);
 
   useEffect(() => {
     getFirebaseServices();
@@ -135,7 +138,7 @@ export function App() {
     setStrategyBusy(true);
     try {
       if (effectiveOffline && firebaseStatus.configured) {
-        throw new Error('Cloud Margin Advisor requires network connectivity (`ONLY_IN_CLOUD`).');
+        throw new Error('Cloud Margin Advisor requires network connectivity (Only Cloud mode).');
       }
       const { advice: nextAdvice, telemetry } = await generateMarginStrategyCloud(entries);
       setAdvice(nextAdvice);
@@ -192,7 +195,7 @@ export function App() {
   }
 
   return (
-    <div className="min-h-screen bg-stone-50 text-stone-900">
+    <div className="min-h-screen bg-[#EEF1EC] text-[#10211A]">
       <StatusHeader
         firebaseStatus={firebaseStatus}
         nanoStatus={nanoStatus}
@@ -208,20 +211,20 @@ export function App() {
 
       <main className="mx-auto max-w-7xl space-y-5 px-4 py-6 sm:px-6 lg:px-8">
         {!firebaseStatus.configured && showSetupBanner && (
-          <div className="flex items-start justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-900">
+          <div className="flex items-start justify-between gap-3 rounded-xs border border-[#B45309]/40 bg-[#FEF8EC] px-4 py-3 text-xs text-[#10211A]">
             <div className="flex items-start gap-2.5">
-              <Info className="mt-0.5 h-4 w-4 shrink-0 text-amber-700" />
+              <Info className="mt-0.5 h-4 w-4 shrink-0 text-[#B45309]" />
               <div>
                 <span className="font-semibold">Local Preview Mode active.</span> Add your{' '}
-                <code className="rounded bg-amber-100 px-1 py-0.5 font-mono">VITE_FIREBASE_*</code> and App Check values from{' '}
-                <code className="rounded bg-amber-100 px-1 py-0.5 font-mono">.env.example</code> to{' '}
-                <code className="rounded bg-amber-100 px-1 py-0.5 font-mono">.env</code> to run live Chrome Gemini Nano + Cloud Gemini hybrid inference via Firebase AI Logic.
+                <code className="rounded-xs bg-white px-1 py-0.5 font-mono border border-[#C5D0C4]">VITE_FIREBASE_*</code> and App Check values from{' '}
+                <code className="rounded-xs bg-white px-1 py-0.5 font-mono border border-[#C5D0C4]">.env.example</code> to{' '}
+                <code className="rounded-xs bg-white px-1 py-0.5 font-mono border border-[#C5D0C4]">.env</code> to run live Chrome Gemini Nano + Cloud Gemini hybrid inference via Firebase AI Logic.
               </div>
             </div>
             <button
               type="button"
               onClick={() => setShowSetupBanner(false)}
-              className="cursor-pointer rounded p-0.5 text-amber-700 hover:bg-amber-100"
+              className="cursor-pointer rounded-xs p-0.5 text-[#B45309] hover:bg-white"
               aria-label="Dismiss setup notice"
             >
               <X className="h-4 w-4" />
@@ -230,18 +233,48 @@ export function App() {
         )}
 
         {errorMsg && (
-          <div className="flex items-center justify-between gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-xs text-red-900">
+          <div className="flex items-center justify-between gap-3 rounded-xs border border-red-400 bg-red-50 px-4 py-3 text-xs text-red-900">
             <span>{errorMsg}</span>
             <button
               type="button"
               onClick={() => setErrorMsg(null)}
-              className="cursor-pointer rounded p-0.5 text-red-700 hover:bg-red-100"
+              className="cursor-pointer rounded-xs p-0.5 text-red-700 hover:bg-red-100"
               aria-label="Dismiss error"
             >
               <X className="h-4 w-4" />
             </button>
           </div>
         )}
+
+        <section
+          aria-label="Shop Accounting Totals"
+          className="grid grid-cols-2 divide-y divide-[#C5D0C4] rounded-xs border border-[#C5D0C4] bg-white lg:grid-cols-4 lg:divide-x lg:divide-y-0"
+        >
+          <div className="border-t-2 border-t-[#0F4C3A] px-5 py-3.5">
+            <div className="text-xs font-medium text-[#43554C]">Cash Collected</div>
+            <div className="mt-1 font-mono text-2xl font-semibold text-[#10211A]">
+              KES {ledgerSummary.totalCashCollectedKes.toLocaleString()}
+            </div>
+          </div>
+          <div className="border-t-2 border-t-[#B45309] px-5 py-3.5">
+            <div className="text-xs font-medium text-[#43554C]">Open Credit Tabs</div>
+            <div className="mt-1 font-mono text-2xl font-semibold text-[#B45309]">
+              KES {ledgerSummary.totalCreditOutstandingKes.toLocaleString()}
+            </div>
+          </div>
+          <div className="border-t-2 border-t-[#0F4C3A] px-5 py-3.5">
+            <div className="text-xs font-medium text-[#43554C]">Weighted Margin</div>
+            <div className="mt-1 font-mono text-2xl font-semibold text-[#0F4C3A]">
+              {ledgerSummary.weightedMarginPct}%
+            </div>
+          </div>
+          <div className="border-t-2 border-t-[#1D4ED8] px-5 py-3.5">
+            <div className="text-xs font-medium text-[#43554C]">Tokens Kept Local</div>
+            <div className="mt-1 font-mono text-2xl font-semibold text-[#1D4ED8]">
+              {tokensSaved.toLocaleString()}
+            </div>
+          </div>
+        </section>
 
         <div className="grid grid-cols-1 gap-5 lg:grid-cols-12">
           <div className="space-y-5 lg:col-span-7">

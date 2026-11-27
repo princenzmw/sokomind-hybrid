@@ -1,13 +1,49 @@
 @import "tailwindcss";
 
+:root {
+  --soko-canvas: #eef1ec;
+  --soko-sheet: #ffffff;
+  --soko-rule: #c5d0c4;
+  --soko-ink: #10211a;
+  --soko-forest: #0f4c3a;
+  --soko-ochre: #b45309;
+  --soko-ochre-wash: #fef8ec;
+  --soko-cobalt: #1d4ed8;
+  --soko-cobalt-wash: #eff6ff;
+  font-family: 'DM Sans', system-ui, -apple-system, sans-serif;
+}
+
 @layer base {
-  :root {
-    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  body {
+    background-color: var(--soko-canvas);
+    color: var(--soko-ink);
   }
 
   code,
   pre,
   .font-mono {
-    font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
+    font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, monospace;
+    font-variant-numeric: tabular-nums;
   }
+}
+
+.font-display {
+  font-family: 'Fraunces', Georgia, serif;
+}
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+.ledger-rule-top {
+  background: linear-gradient(
+    to bottom,
+    #0f4c3a 0,
+    #0f4c3a 3px,
+    #eef1ec 3px,
+    #eef1ec 5px,
+    #b45309 5px,
+    #b45309 6px
+  );
+  height: 6px;
 }

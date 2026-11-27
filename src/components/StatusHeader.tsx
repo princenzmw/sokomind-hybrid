@@ -50,29 +50,30 @@ export function StatusHeader({
   const effectiveOffline = simulatedOffline || browserOffline;
 
   return (
-    <header className="border-b border-stone-200 bg-white">
+    <header className="border-b border-[#C5D0C4] bg-white">
+      <div className="ledger-rule-top w-full" />
       <div className="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-          <div>
-            <div className="flex items-center gap-2.5">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-800 text-sm font-bold text-white">
-                SM
-              </div>
-              <div>
-                <h1 className="text-lg font-bold tracking-tight text-stone-900">SokoMind</h1>
-                <p className="text-xs text-stone-500">
-                  Privacy-First Hybrid AI Retail Ledger &amp; Margin Copilot
-                </p>
-              </div>
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xs border border-[#0F4C3A] bg-[#0F4C3A] font-display text-base font-bold tracking-tight text-white">
+              SM
+            </div>
+            <div>
+              <h1 className="font-display text-2xl font-bold leading-none tracking-tight text-[#10211A]">
+                SokoMind
+              </h1>
+              <p className="mt-1 text-xs text-[#43554C]">
+                Hybrid AI retail ledger for East African shops
+              </p>
             </div>
           </div>
 
           <div className="flex flex-wrap items-center gap-2 text-xs font-medium">
             <span
-              className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 ${
+              className={`inline-flex items-center gap-1.5 rounded-xs border px-2.5 py-1 ${
                 isLive && firebaseStatus.appCheckStatus !== 'error'
-                  ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
-                  : 'border-amber-200 bg-amber-50 text-amber-800'
+                  ? 'border-[#0F4C3A]/35 bg-[#EEF1EC] text-[#0F4C3A]'
+                  : 'border-[#B45309]/40 bg-[#FEF8EC] text-[#B45309]'
               }`}
               title={firebaseStatus.appCheckDetail}
             >
@@ -82,16 +83,16 @@ export function StatusHeader({
                 : 'Preview Mode (Local Parser)'}
             </span>
 
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-stone-200 bg-stone-50 px-2.5 py-1 text-stone-700">
-              <Database className="h-3.5 w-3.5 text-emerald-700" />
+            <span className="inline-flex items-center gap-1.5 rounded-xs border border-[#C5D0C4] bg-[#EEF1EC]/60 px-2.5 py-1 text-[#10211A]">
+              <Database className="h-3.5 w-3.5 text-[#0F4C3A]" />
               {syncLabel(syncState)}
             </span>
 
             <span
-              className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 ${
+              className={`inline-flex items-center gap-1.5 rounded-xs border px-2.5 py-1 ${
                 nanoStatus === 'available'
-                  ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
-                  : 'border-stone-200 bg-stone-100 text-stone-700'
+                  ? 'border-[#0F4C3A]/35 bg-[#EEF1EC] text-[#0F4C3A]'
+                  : 'border-[#C5D0C4] bg-white text-[#43554C]'
               }`}
             >
               <Cpu className="h-3.5 w-3.5" />
@@ -103,7 +104,7 @@ export function StatusHeader({
                 type="button"
                 onClick={onDownloadNano}
                 disabled={nanoDownloadPct !== null}
-                className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-emerald-300 bg-emerald-50 px-2.5 py-1 text-emerald-900 transition hover:bg-emerald-100 disabled:cursor-wait disabled:opacity-75"
+                className="inline-flex cursor-pointer items-center gap-1.5 rounded-xs border border-[#0F4C3A] bg-[#EEF1EC] px-2.5 py-1 text-[#0F4C3A] transition hover:bg-[#dce4dc] disabled:cursor-wait disabled:opacity-75"
               >
                 {nanoDownloadPct !== null ? `Downloading Nano (${nanoDownloadPct}%)` : 'Download Nano'}
               </button>
@@ -112,19 +113,19 @@ export function StatusHeader({
             <button
               type="button"
               onClick={() => setShowNanoGuide((prev) => !prev)}
-              className="inline-flex cursor-pointer items-center gap-1 rounded-full border border-stone-200 bg-white px-2.5 py-1 text-stone-700 transition hover:bg-stone-50"
+              className="inline-flex cursor-pointer items-center gap-1 rounded-xs border border-[#C5D0C4] bg-white px-2.5 py-1 text-[#10211A] transition hover:bg-[#EEF1EC]"
             >
-              <HelpCircle className="h-3.5 w-3.5 text-emerald-700" />
+              <HelpCircle className="h-3.5 w-3.5 text-[#0F4C3A]" />
               Nano Setup
             </button>
 
             <button
               type="button"
               onClick={onToggleOffline}
-              className={`inline-flex cursor-pointer items-center gap-1.5 rounded-full border px-2.5 py-1 transition ${
+              className={`inline-flex cursor-pointer items-center gap-1.5 rounded-xs border px-2.5 py-1 transition ${
                 effectiveOffline
-                  ? 'border-amber-300 bg-amber-100 text-amber-900'
-                  : 'border-stone-200 bg-white text-stone-700 hover:bg-stone-50'
+                  ? 'border-[#B45309] bg-[#FEF8EC] text-[#B45309]'
+                  : 'border-[#C5D0C4] bg-white text-[#10211A] hover:bg-[#EEF1EC]'
               }`}
             >
               {effectiveOffline ? (
@@ -134,7 +135,7 @@ export function StatusHeader({
                 </>
               ) : (
                 <>
-                  <Wifi className="h-3.5 w-3.5 text-emerald-700" />
+                  <Wifi className="h-3.5 w-3.5 text-[#0F4C3A]" />
                   Online
                 </>
               )}
@@ -143,25 +144,33 @@ export function StatusHeader({
         </div>
 
         {showNanoGuide && (
-          <div className="mt-3 flex items-start justify-between gap-3 rounded-lg border border-stone-200 bg-stone-50 p-3 text-xs text-stone-700">
+          <div className="mt-3 flex items-start justify-between gap-3 rounded-xs border border-[#C5D0C4] bg-[#EEF1EC]/65 p-3 text-xs text-[#10211A]">
             <div className="space-y-1">
-              <div className="font-semibold text-stone-900">
+              <div className="font-semibold">
                 Enable Chrome On-Device Gemini Nano (Optional Local Runtime)
               </div>
               <p>
-                1. Open <code className="rounded bg-stone-200 px-1 font-mono">chrome://flags/#optimization-guide-on-device-model</code> and set it to <strong>Enabled BypassPerfRequirement</strong>.
+                1. Open{' '}
+                <code className="rounded-xs bg-white px-1 py-0.5 font-mono text-[11px] border border-[#C5D0C4]">
+                  chrome://flags/#optimization-guide-on-device-model
+                </code>{' '}
+                and set it to <strong>Enabled BypassPerfRequirement</strong>.
               </p>
               <p>
-                2. Open <code className="rounded bg-stone-200 px-1 font-mono">chrome://flags/#prompt-api-for-gemini-nano</code> and set it to <strong>Enabled</strong>, then relaunch Chrome.
+                2. Open{' '}
+                <code className="rounded-xs bg-white px-1 py-0.5 font-mono text-[11px] border border-[#C5D0C4]">
+                  chrome://flags/#prompt-api-for-gemini-nano
+                </code>{' '}
+                and set it to <strong>Enabled</strong>, then relaunch Chrome.
               </p>
-              <p className="text-stone-500">
-                When Gemini Nano is unavailable, SokoMind automatically falls back to Cloud Gemini 3.8 Flash online or deterministic local parsing when offline.
+              <p className="text-[#43554C]">
+                When Gemini Nano is unavailable, SokoMind falls back to Cloud Gemini 3.8 Flash online or deterministic local parsing offline.
               </p>
             </div>
             <button
               type="button"
               onClick={() => setShowNanoGuide(false)}
-              className="cursor-pointer rounded p-0.5 text-stone-500 hover:bg-stone-200"
+              className="cursor-pointer rounded-xs p-1 text-[#43554C] hover:bg-white"
               aria-label="Close Nano setup guide"
             >
               <X className="h-4 w-4" />
@@ -169,12 +178,12 @@ export function StatusHeader({
           </div>
         )}
 
-        <div className="mt-4 flex flex-col gap-2 border-t border-stone-100 pt-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-1.5 text-xs font-medium text-stone-600">
-            <Globe className="h-3.5 w-3.5 text-emerald-700" />
-            <span>Firebase AI Logic `InferenceMode`:</span>
+        <div className="mt-4 flex flex-col gap-2 border-t border-[#C5D0C4]/80 pt-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-1.5 text-xs font-medium text-[#43554C]">
+            <Globe className="h-3.5 w-3.5 text-[#0F4C3A]" />
+            <span>Firebase AI Logic Inference mode:</span>
           </div>
-          <div className="grid grid-cols-2 gap-1.5 sm:flex sm:flex-wrap">
+          <div className="inline-grid grid-cols-2 divide-x divide-[#C5D0C4] overflow-hidden rounded-xs border border-[#C5D0C4] bg-[#EEF1EC]/40 sm:flex">
             {MODE_OPTIONS.map((opt) => {
               const selected = opt.value === routingMode;
               return (
@@ -183,10 +192,10 @@ export function StatusHeader({
                   type="button"
                   onClick={() => onChangeMode(opt.value)}
                   title={opt.hint}
-                  className={`cursor-pointer rounded-md border px-2.5 py-1 text-xs font-medium transition ${
+                  className={`cursor-pointer px-3 py-1.5 text-xs font-medium transition ${
                     selected
-                      ? 'border-emerald-800 bg-emerald-800 text-white'
-                      : 'border-stone-200 bg-stone-50 text-stone-700 hover:border-stone-300 hover:bg-stone-100'
+                      ? 'bg-[#0F4C3A] text-white'
+                      : 'bg-white text-[#10211A] hover:bg-[#EEF1EC]'
                   }`}
                 >
                   {opt.label}

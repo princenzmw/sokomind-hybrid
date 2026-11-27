@@ -21,11 +21,11 @@ const FILTER_OPTIONS: Array<'All' | LedgerCategory> = [
 function sourceBadge(source: TelemetrySource) {
   switch (source) {
     case 'ON_DEVICE':
-      return 'border-emerald-200 bg-emerald-50 text-emerald-800';
+      return 'border-[#0F4C3A]/35 bg-[#EEF1EC] text-[#0F4C3A]';
     case 'IN_CLOUD':
-      return 'border-sky-200 bg-sky-50 text-sky-800';
+      return 'border-[#1D4ED8]/35 bg-[#EFF6FF] text-[#1D4ED8]';
     case 'PREVIEW_LOCAL':
-      return 'border-amber-200 bg-amber-50 text-amber-800';
+      return 'border-[#B45309]/40 bg-[#FEF8EC] text-[#B45309]';
   }
 }
 
@@ -108,38 +108,38 @@ export function LedgerTable({ entries, onSettleTab, onResetDemo, busy }: LedgerT
   }
 
   return (
-    <section className="rounded-xl border border-stone-200 bg-white shadow-xs">
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-stone-200 px-5 py-3.5">
+    <section className="rounded-xs border border-[#C5D0C4] bg-white">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#C5D0C4] px-5 py-3.5">
         <div>
-          <h2 className="text-base font-semibold text-stone-900">Structured Shop Ledger</h2>
-          <p className="text-xs text-stone-500">
-            Stored locally and synced as redacted records (raw PII never leaves device).
+          <h2 className="font-display text-lg font-semibold text-[#10211A]">Structured Shop Ledger</h2>
+          <p className="text-xs text-[#43554C]">
+            Stored locally and synced as redacted records; raw PII never leaves the device.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
             onClick={handleExportCsv}
-            className="inline-flex cursor-pointer items-center gap-1 rounded-md border border-stone-200 bg-white px-2.5 py-1 text-xs font-medium text-stone-700 hover:bg-stone-50"
+            className="inline-flex cursor-pointer items-center gap-1 rounded-xs border border-[#C5D0C4] bg-white px-2.5 py-1 text-xs font-medium text-[#10211A] hover:bg-[#EEF1EC]"
           >
-            <Download className="h-3.5 w-3.5 text-emerald-700" />
+            <Download className="h-3.5 w-3.5 text-[#0F4C3A]" />
             Export CSV
           </button>
           <button
             type="button"
             onClick={onResetDemo}
-            className="inline-flex cursor-pointer items-center gap-1 rounded-md border border-stone-200 bg-white px-2.5 py-1 text-xs font-medium text-stone-700 hover:bg-stone-50"
+            className="inline-flex cursor-pointer items-center gap-1 rounded-xs border border-[#C5D0C4] bg-white px-2.5 py-1 text-xs font-medium text-[#10211A] hover:bg-[#EEF1EC]"
           >
-            <RotateCcw className="h-3.5 w-3.5 text-stone-500" />
+            <RotateCcw className="h-3.5 w-3.5 text-[#43554C]" />
             Reset Demo
           </button>
-          <span className="font-mono text-xs text-stone-500">{filteredEntries.length} entries</span>
+          <span className="font-mono text-xs text-[#43554C]">{filteredEntries.length} entries</span>
         </div>
       </div>
 
       {openTabs.length > 0 && (
-        <div className="border-b border-stone-200 bg-amber-50/50 px-5 py-3">
-          <div className="flex items-center justify-between text-xs font-semibold text-amber-900">
+        <div className="border-b border-[#C5D0C4] border-l-4 border-l-[#B45309] bg-[#FEF8EC] px-5 py-3">
+          <div className="flex items-center justify-between text-xs font-semibold text-[#B45309]">
             <span>Open Credit Tabs (Madeni)</span>
             <span className="font-mono text-[11px] font-medium">
               {openTabs.length} active {openTabs.length === 1 ? 'account' : 'accounts'}
@@ -149,17 +149,17 @@ export function LedgerTable({ entries, onSettleTab, onResetDemo, busy }: LedgerT
             {openTabs.map((tab) => (
               <div
                 key={tab.customerAlias}
-                className="flex items-center gap-2 rounded-lg border border-amber-200 bg-white px-2.5 py-1.5 text-xs"
+                className="flex items-center gap-2.5 rounded-xs border border-[#B45309]/35 bg-white px-2.5 py-1.5 text-xs"
               >
-                <span className="font-mono font-semibold text-stone-800">{tab.customerAlias}</span>
-                <span className="font-mono font-bold text-amber-700">
+                <span className="font-mono font-semibold text-[#10211A]">{tab.customerAlias}</span>
+                <span className="font-mono font-bold text-[#B45309]">
                   KES {tab.openBalanceKes.toLocaleString()}
                 </span>
                 <button
                   type="button"
                   disabled={busy}
                   onClick={() => onSettleTab(tab.customerAlias, tab.openBalanceKes)}
-                  className="inline-flex cursor-pointer items-center gap-1 rounded bg-emerald-800 px-2 py-0.5 text-[11px] font-medium text-white transition hover:bg-emerald-900 disabled:opacity-50"
+                  className="inline-flex cursor-pointer items-center gap-1 rounded-xs bg-[#0F4C3A] px-2 py-0.5 text-[11px] font-medium text-white transition hover:bg-[#0B3B2D] disabled:opacity-50"
                 >
                   <CheckCircle2 className="h-3 w-3" />
                   Settle Tab
@@ -170,17 +170,17 @@ export function LedgerTable({ entries, onSettleTab, onResetDemo, busy }: LedgerT
         </div>
       )}
 
-      <div className="flex flex-col gap-2 border-b border-stone-100 bg-stone-50/60 px-5 py-2.5 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-2 border-b border-[#C5D0C4] bg-[#EEF1EC]/45 px-5 py-2.5 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-wrap gap-1">
           {FILTER_OPTIONS.map((opt) => (
             <button
               key={opt}
               type="button"
               onClick={() => setCategoryFilter(opt)}
-              className={`cursor-pointer rounded-md px-2.5 py-1 text-[11px] font-medium transition ${
+              className={`cursor-pointer rounded-xs px-2.5 py-1 text-[11px] font-medium transition ${
                 categoryFilter === opt
-                  ? 'bg-emerald-800 text-white'
-                  : 'border border-stone-200 bg-white text-stone-600 hover:bg-stone-100'
+                  ? 'bg-[#0F4C3A] text-white'
+                  : 'border border-[#C5D0C4] bg-white text-[#43554C] hover:bg-[#EEF1EC]'
               }`}
             >
               {opt}
@@ -189,97 +189,97 @@ export function LedgerTable({ entries, onSettleTab, onResetDemo, busy }: LedgerT
         </div>
 
         <div className="relative sm:w-56">
-          <Search className="pointer-events-none absolute top-2 left-2.5 h-3.5 w-3.5 text-stone-400" />
+          <Search className="pointer-events-none absolute top-2 left-2.5 h-3.5 w-3.5 text-[#708278]" />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search alias or item..."
-            className="w-full rounded-md border border-stone-200 bg-white py-1 pr-2.5 pl-8 text-xs text-stone-800 placeholder:text-stone-400 focus:border-emerald-700 focus:outline-none"
+            className="w-full rounded-xs border border-[#C5D0C4] bg-white py-1 pr-2.5 pl-8 text-xs text-[#10211A] placeholder:text-[#708278] focus:border-[#0F4C3A] focus:outline-none"
           />
         </div>
       </div>
 
-      <div className="divide-y divide-stone-100">
+      <div className="divide-y divide-[#C5D0C4]/70">
         {filteredEntries.length === 0 ? (
-          <div className="px-5 py-8 text-center text-xs text-stone-500">
+          <div className="px-5 py-8 text-center text-xs text-[#43554C]">
             No ledger entries match this filter.
           </div>
         ) : (
           filteredEntries.map((entry) => {
             const expanded = expandedId === entry.id;
             return (
-              <div key={entry.id} className="px-5 py-3.5 transition hover:bg-stone-50/70">
+              <div key={entry.id} className="px-5 py-3.5 transition hover:bg-[#EEF1EC]/40">
                 <div className="flex flex-wrap items-start justify-between gap-2">
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
                       <button
                         type="button"
                         onClick={() => setExpandedId(expanded ? null : entry.id)}
-                        className="inline-flex cursor-pointer items-center gap-1 text-left text-sm font-semibold text-stone-900 hover:text-emerald-800"
+                        className="inline-flex cursor-pointer items-center gap-1 text-left text-sm font-semibold text-[#10211A] hover:text-[#0F4C3A]"
                       >
                         {expanded ? (
-                          <ChevronDown className="h-3.5 w-3.5 text-stone-400" />
+                          <ChevronDown className="h-3.5 w-3.5 text-[#708278]" />
                         ) : (
-                          <ChevronRight className="h-3.5 w-3.5 text-stone-400" />
+                          <ChevronRight className="h-3.5 w-3.5 text-[#708278]" />
                         )}
                         {entry.category}
                       </button>
-                      <span className="rounded bg-stone-100 px-1.5 py-0.5 font-mono text-[11px] text-stone-600">
+                      <span className="rounded-xs border border-[#C5D0C4] bg-[#EEF1EC]/60 px-1.5 py-0.5 font-mono text-[11px] text-[#10211A]">
                         {entry.customerAlias}
                       </span>
-                      <span className="rounded bg-stone-100 px-1.5 py-0.5 font-mono text-[11px] text-stone-600">
+                      <span className="rounded-xs border border-[#C5D0C4] bg-white px-1.5 py-0.5 font-mono text-[11px] text-[#43554C]">
                         {entry.paymentMethod}
                       </span>
                       {entry.redactionCount > 0 && (
-                        <span className="inline-flex items-center gap-1 rounded bg-emerald-50 px-1.5 py-0.5 font-mono text-[11px] text-emerald-800">
+                        <span className="inline-flex items-center gap-1 rounded-xs bg-[#EEF1EC] px-1.5 py-0.5 font-mono text-[11px] text-[#0F4C3A]">
                           <ShieldAlert className="h-3 w-3" />
                           {entry.redactionCount} PII masked
                         </span>
                       )}
                     </div>
-                    <p className="mt-1 text-xs text-stone-700">{entry.summary}</p>
-                    <p className="mt-0.5 truncate font-mono text-[11px] text-stone-400">
+                    <p className="mt-1 text-xs text-[#10211A]/85">{entry.summary}</p>
+                    <p className="mt-0.5 truncate font-mono text-[11px] text-[#708278]">
                       Sanitized: {entry.sanitizedInput}
                     </p>
                   </div>
 
                   <div className="text-right">
-                    <div className="font-mono text-sm font-semibold text-stone-900">
+                    <div className="font-mono text-sm font-semibold text-[#10211A]">
                       KES {entry.totalKes.toLocaleString()}
                     </div>
-                    <div className="mt-0.5 font-mono text-[11px] text-stone-500">
+                    <div className="mt-0.5 font-mono text-[11px] text-[#43554C]">
                       Paid {entry.paidKes.toLocaleString()}
                       {entry.creditOwedKes > 0 && (
-                        <span className="ml-1.5 font-semibold text-amber-700">
-                          · Tab {entry.creditOwedKes.toLocaleString()}
+                        <span className="ml-2 font-semibold text-[#B45309]">
+                          Tab {entry.creditOwedKes.toLocaleString()}
                         </span>
                       )}
                     </div>
                     <div className="mt-1.5 flex flex-wrap items-center justify-end gap-1.5">
                       <span
-                        className={`rounded-full border px-2 py-0.5 font-mono text-[10px] font-medium ${sourceBadge(entry.inferenceSource)}`}
+                        className={`rounded-xs border px-2 py-0.5 font-mono text-[10px] font-medium ${sourceBadge(entry.inferenceSource)}`}
                       >
                         {entry.inferenceSource}
                       </span>
                       {entry.modelUsed && (
-                        <span className="rounded bg-stone-100 px-1.5 py-0.5 font-mono text-[10px] text-stone-600">
+                        <span className="rounded-xs border border-[#C5D0C4] bg-[#EEF1EC]/50 px-1.5 py-0.5 font-mono text-[10px] text-[#43554C]">
                           {entry.modelUsed}
                         </span>
                       )}
-                      <span className="font-mono text-[10px] text-stone-400">{entry.latencyMs}ms</span>
+                      <span className="font-mono text-[10px] text-[#708278]">{entry.latencyMs}ms</span>
                     </div>
                   </div>
                 </div>
 
                 {expanded && (
-                  <div className="mt-3 rounded-lg border border-stone-200 bg-stone-50 p-3">
-                    <div className="text-[11px] font-semibold text-stone-700">Line Items</div>
+                  <div className="mt-3 rounded-xs border border-[#C5D0C4] bg-[#EEF1EC]/45 p-3">
+                    <div className="text-[11px] font-semibold text-[#10211A]">Line Items</div>
                     <div className="mt-1.5 space-y-1">
                       {entry.items.map((item, idx) => (
                         <div
                           key={`${entry.id}-item-${idx}`}
-                          className="flex items-center justify-between font-mono text-[11px] text-stone-600"
+                          className="flex items-center justify-between font-mono text-[11px] text-[#43554C]"
                         >
                           <span>
                             {item.quantity}x {item.name} ({item.unit})
